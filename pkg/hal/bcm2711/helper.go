@@ -1,4 +1,4 @@
-package hal
+package bcm2711
 
 import (
 	"os"

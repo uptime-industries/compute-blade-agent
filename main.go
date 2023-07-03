@@ -1,17 +1,19 @@
 package main
 
-import "github.com/xvzf/computeblade-agent/pkg/hal"
+import (
+	"github.com/xvzf/computeblade-agent/pkg/hal"
+	"github.com/xvzf/computeblade-agent/pkg/hal/bcm2711"
+)
 
 func main() {
-	hal, err := hal.NewComputeBladeHAL(hal.ComputeBladeHalOpts{
-		ComputeModuleType:         hal.COMPUTE_MODULE_TYPE_CM4,
+	blade, err := bcm2711.New(hal.ComputeBladeHalOpts{
 		FanUnit:                   hal.FAN_UNIT_STANDARD,
-		DefaultFanSpeed:           50,
-		DefaultStealthModeEnabled: true,
+		DefaultFanSpeed:           40,
+		DefaultStealthModeEnabled: false,
 	})
 	if err != nil {
 		panic(err)
 	}
-	defer hal.Close()
-	hal.Init()
+	defer blade.Close()
+	blade.Init()
 }
