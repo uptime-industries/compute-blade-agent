@@ -306,7 +306,8 @@ func (bcm *bcm2711bcm) SetLEDs(top LedColor, edge LedColor) {
 
 	bcm.pwmMem[PWM_CTL] = (1 << PWM_CTL_MODE1) | (1 << PWM_CTL_RPTL1) | (0 << PWM_CTL_SBIT1) | (1 << PWM_CTL_USEF1) | (1 << PWM_CTL_CLRF1)
 	time.Sleep(10 * time.Microsecond)
-	bcm.pwmMem[PWM_RNG1] = 32
+	// bcm.pwmMem[PWM_RNG1] = 32
+	bcm.pwmMem[PWM_RNG1] = 24 // we only need 24 bits per LED
 	time.Sleep(10 * time.Microsecond)
 
 	// Add sufficient padding to clear
@@ -314,13 +315,13 @@ func (bcm *bcm2711bcm) SetLEDs(top LedColor, edge LedColor) {
 	bcm.pwmMem[PWM_FIF1] = 0
 	bcm.pwmMem[PWM_FIF1] = 0
 	// Write top LED data
-	bcm.pwmMem[PWM_FIF1] = serializePwmDataFrame(top.Red)
-	bcm.pwmMem[PWM_FIF1] = serializePwmDataFrame(top.Green)
-	bcm.pwmMem[PWM_FIF1] = serializePwmDataFrame(top.Blue)
+	bcm.pwmMem[PWM_FIF1] = serializePwmDataFrame(top.Red) << 8
+	bcm.pwmMem[PWM_FIF1] = serializePwmDataFrame(top.Green) << 8
+	bcm.pwmMem[PWM_FIF1] = serializePwmDataFrame(top.Blue) << 8
 	// Write edge LED data
-	bcm.pwmMem[PWM_FIF1] = serializePwmDataFrame(edge.Red)
-	bcm.pwmMem[PWM_FIF1] = serializePwmDataFrame(edge.Green)
-	bcm.pwmMem[PWM_FIF1] = serializePwmDataFrame(edge.Blue)
+	bcm.pwmMem[PWM_FIF1] = serializePwmDataFrame(edge.Red) << 8
+	bcm.pwmMem[PWM_FIF1] = serializePwmDataFrame(edge.Green) << 8
+	bcm.pwmMem[PWM_FIF1] = serializePwmDataFrame(edge.Blue) << 8
 	// make sure there's >50us of silence
 	bcm.pwmMem[PWM_FIF1] = 0
 	bcm.pwmMem[PWM_FIF1] = 0
