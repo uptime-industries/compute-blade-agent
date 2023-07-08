@@ -20,7 +20,6 @@ const (
 
 	bcm2711FrontButtonPin = 20
 	bcm2711StealthPin     = 21
-	bcm2711PwmFanPin      = 12
 	bcm2711PwmTachPin     = 13
 
 	GPFSEL0 = 0x00
@@ -141,7 +140,11 @@ func (bcm *bcm2711bcm) InitGPIO() {
 	bcm.wrMutex.Lock()
 	defer bcm.wrMutex.Unlock()
 
-	// Blade Butten (GPIO 20)
+	// Edge Button (GPIO 20)
+	// -> GPFSEL2 2:0, input
+	bcm.gpioMem[GPFSEL2] = (bcm.gpioMem[GPFSEL2] &^ (0b111 << 0)) | (0b000 << 0)
+
+	// PoE at detection (GPIO 23)
 	// -> GPFSEL2 2:0, input
 	bcm.gpioMem[GPFSEL2] = (bcm.gpioMem[GPFSEL2] &^ (0b111 << 0)) | (0b000 << 0)
 
@@ -164,7 +167,7 @@ func (bcm *bcm2711bcm) InitGPIO() {
 
 	// Set WS2812 output (GPIO 18)
 	// -> GPFSEL1 24:26, set as regular output by default. On-demand, it's mapped to pwm0
-	bcm.gpioMem[GPFSEL1] = (bcm.gpioMem[GPFSEL1] &^ (0b111 << 24)) | (0b000 << 24)
+	bcm.gpioMem[GPFSEL1] = (bcm.gpioMem[GPFSEL1] &^ (0b111 << 24)) | (0b001 << 24)
 
 	// FIXME add edge button
 }
@@ -300,7 +303,7 @@ func (bcm *bcm2711bcm) SetLEDs(top LedColor, edge LedColor) {
 	time.Sleep(10 * time.Microsecond)
 	defer func() {
 		// Set to regular output again so the PWM signal doesn't confuse the WS2812
-		bcm.gpioMem[GPFSEL1] = (bcm.gpioMem[GPFSEL1] &^ (0b111 << 24)) | (0b000 << 24)
+		bcm.gpioMem[GPFSEL1] = (bcm.gpioMem[GPFSEL1] &^ (0b111 << 24)) | (0b001 << 24)
 		bcm.setFanSpeedPWM(bcm.currFanSpeed)
 	}()
 
