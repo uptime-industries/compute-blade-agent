@@ -2,16 +2,34 @@ package hal
 
 type FanUnit uint8
 type ComputeModule uint8
+type PowerStatus uint8
 
 const (
-	FAN_UNIT_STANDARD = iota
-	FAN_UNIT_ADVANCED
+	FanUnitStandard = iota
+	FanUnitSmart
 )
 
+const (
+	PoeOrUsbC = iota
+	Poe802at
+)
+
+type LedColor struct {
+	Red   uint8
+	Green uint8
+	Blue  uint8
+}
+
+type ComputeBladeHalOptsDefault struct {
+	StealthModeEnabled bool
+	FanSpeed           uint8
+	TopLedColor        LedColor
+	EdgeLedColor       LedColor
+}
+
 type ComputeBladeHalOpts struct {
-	FanUnit                   FanUnit
-	DefaultFanSpeed           uint8
-	DefaultStealthModeEnabled bool
+	FanUnit  FanUnit
+	Defaults ComputeBladeHalOptsDefault
 }
 
 // COmputeBladeHal abstracts hardware details of the Compute Blade and provides a simple interface
@@ -20,4 +38,6 @@ type ComputeBladeHal interface {
 	Close() error
 	SetFanSpeed(speed uint8)
 	SetStealthMode(enabled bool)
+	GetPowerStatus() PowerStatus
+	SetLEDs(top, edge LedColor)
 }
