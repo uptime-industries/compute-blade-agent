@@ -1,6 +1,10 @@
 package main
 
 import (
+	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/xvzf/computeblade-agent/pkg/hal"
@@ -9,49 +13,40 @@ import (
 
 func main() {
 	blade, err := bcm2711.New(hal.ComputeBladeHalOpts{
-		FanUnit:                   hal.FAN_UNIT_STANDARD,
-		DefaultFanSpeed:           10,
-		DefaultStealthModeEnabled: false,
+		FanUnit: hal.FanUnitStandard,
+		Defaults: hal.ComputeBladeHalOptsDefault{
+			StealthModeEnabled: false,
+			FanSpeed:           20,
+			TopLedColor:        hal.LedColor{},
+			EdgeLedColor:       hal.LedColor{Red: 0, Green: 5, Blue: 5},
+		},
 	})
 	if err != nil {
 		panic(err)
 	}
-	defer blade.Close()
-	blade.Init()
 
-	ledColorToggle := []bcm2711.LedColor{
-		{
-			Green: 50,
-			Blue:  0,
-			Red:   0,
-		},
-		{
-			Green: 0,
-			Blue:  50,
-			Red:   0,
-		},
-		{
-			Green: 0,
-			Blue:  0,
-			Red:   50,
-		},
+	if err != nil {
+		panic(err)
 	}
 
-	// just randomly go through colors!
-	idxTop := 1
-	idxEdge := 0
+	// setup signal handler
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigs
+		err := blade.Close()
+		if err != nil {
+			fmt.Printf("Error closing blade: %s\n", err)
+		}
+		fmt.Println("Exiting...")
+		os.Exit(0)
+	}()
+
+	// just dummy print for now
 	for {
-		<-time.After(time.Second * 1)
-		idxTop++
-		if idxTop > 2 {
-			idxTop = 0
-		}
-		idxEdge++
-		if idxEdge > 2 {
-			idxEdge = 0
-		}
-		blade.SetLEDs(ledColorToggle[idxTop], ledColorToggle[idxEdge])
-		blade.SetFanSpeed(30 * uint8(idxTop))
+		fmt.Printf("Power status: %s\n", blade.GetPowerStatus())
+		fmt.Printf("Fan speed: %d\n", blade.GetFanSpeed())
+		time.Sleep(1 * time.Second)
 	}
 
 }

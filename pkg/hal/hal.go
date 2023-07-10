@@ -4,14 +4,25 @@ type FanUnit uint8
 type ComputeModule uint8
 type PowerStatus uint8
 
+func (p PowerStatus) String() string {
+	switch p {
+	case PowerPoe802at:
+		return "poe802at"
+	case PowerPoeOrUsbC:
+		return "poeOrUsbC"
+	default:
+		return "undefined"
+	}
+}
+
 const (
 	FanUnitStandard = iota
 	FanUnitSmart
 )
 
 const (
-	PoeOrUsbC = iota
-	Poe802at
+	PowerPoeOrUsbC = iota
+	PowerPoe802at
 )
 
 type LedColor struct {

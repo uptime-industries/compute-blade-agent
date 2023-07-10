@@ -2,11 +2,14 @@ package bcm2711
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"sync"
 	"syscall"
 	"time"
 
+	"github.com/warthog618/gpiod"
+	"github.com/warthog618/gpiod/device/rpi"
 	"github.com/xvzf/computeblade-agent/pkg/hal"
 )
 
@@ -22,12 +25,9 @@ const (
 	bcm2711StealthPin     = 21
 	bcm2711RegPwmTachPin  = 13
 
-	bcm2711RegGpfsel0 = 0x00
 	bcm2711RegGpfsel1 = 0x01
-	bcm2711RegGpfsel2 = 0x02
 
 	bcm2711RegPwmCtl  = 0x00
-	bcm2711RegPwmSta  = 0x01
 	bcm2711RegPwmRng1 = 0x04
 	bcm2711RegPwmFif1 = 0x06
 
@@ -54,14 +54,28 @@ type bcm2711 struct {
 	// Keep track of the currently set fanspeed so it can later be restored after setting the ws281x LEDs
 	currFanSpeed uint8
 
-	devmem   *os.File
-	mbox     *os.File
-	gpioMem8 []uint8
-	gpioMem  []uint32
-	pwmMem8  []uint8
-	pwmMem   []uint32
-	clkMem8  []uint8
-	clkMem   []uint32
+	devmem    *os.File
+	gpioMem8  []uint8
+	gpioMem   []uint32
+	pwmMem8   []uint8
+	pwmMem    []uint32
+	clkMem8   []uint8
+	clkMem    []uint32
+	gpioChip0 *gpiod.Chip
+
+	// Stealth mode output
+	stealthModeLine *gpiod.Line
+
+	// Edge button input
+	edgeButtonLine *gpiod.Line
+
+	// PoE detection input
+	poeLine *gpiod.Line
+
+	// Fan tach input
+	fanEdgeLine      *gpiod.Line
+	lastFanEdgeEvent *gpiod.LineEvent
+	fanRpm           float64
 }
 
 func New(opts hal.ComputeBladeHalOpts) (*bcm2711, error) {
@@ -71,8 +85,7 @@ func New(opts hal.ComputeBladeHalOpts) (*bcm2711, error) {
 		return nil, err
 	}
 
-	// /dev/vcio for ioctl with VC mailbox
-	mbox, err := os.OpenFile("/dev/vcio", os.O_RDWR|os.O_SYNC, os.ModePerm)
+	gpioChip0, err := gpiod.NewChip("gpiochip0")
 	if err != nil {
 		return nil, err
 	}
@@ -91,75 +104,122 @@ func New(opts hal.ComputeBladeHalOpts) (*bcm2711, error) {
 		return nil, err
 	}
 
-	return &bcm2711{
-		devmem:   devmem,
-		mbox:     mbox,
-		gpioMem:  gpioMem,
-		gpioMem8: gpioMem8,
-		pwmMem:   pwmMem,
-		pwmMem8:  pwmMem8,
-		clkMem:   clkMem,
-		clkMem8:  clkMem8,
-		opts:     opts,
-	}, nil
+	bcm := &bcm2711{
+		devmem:    devmem,
+		gpioMem:   gpioMem,
+		gpioMem8:  gpioMem8,
+		pwmMem:    pwmMem,
+		pwmMem8:   pwmMem8,
+		clkMem:    clkMem,
+		clkMem8:   clkMem8,
+		gpioChip0: gpioChip0,
+		opts:      opts,
+	}
+
+	return bcm, bcm.setup()
 }
 
 // Close cleans all memory mappings
 func (bcm *bcm2711) Close() error {
-	return errors.Join(
+	errs := errors.Join(
 		syscall.Munmap(bcm.gpioMem8),
 		syscall.Munmap(bcm.pwmMem8),
 		syscall.Munmap(bcm.clkMem8),
 		bcm.devmem.Close(),
-		bcm.mbox.Close(),
+		bcm.gpioChip0.Close(),
+		bcm.edgeButtonLine.Close(),
+		bcm.poeLine.Close(),
+		bcm.stealthModeLine.Close(),
 	)
+
+	if bcm.fanEdgeLine != nil {
+		return errors.Join(errs, bcm.fanEdgeLine.Close())
+	}
+	return errs
+}
+
+// handleFanEdge handles an edge event on the fan tach input for the standard fan unite.
+// Exponential moving average is used to smooth out the fan speed.
+func (bcm *bcm2711) handleFanEdge(evt gpiod.LineEvent) {
+	// Ensure we're always storing the last event
+	defer func() {
+		bcm.lastFanEdgeEvent = &evt
+	}()
+
+	// First event, we cannot extrapolate the fan speed yet
+	if bcm.lastFanEdgeEvent == nil {
+		return
+	}
+
+	// Calculate time delta between events
+	delta := evt.Timestamp - bcm.lastFanEdgeEvent.Timestamp
+	ticksPerSecond := 1000.0 / float64(delta.Milliseconds())
+	rpm := (ticksPerSecond * 60.0) / 2.0 // 2 ticks per revolution
+
+	// Simple moving average to smooth out the fan speed
+	bcm.fanRpm = (rpm * 0.1) + (bcm.fanRpm * 0.9)
+}
+
+func (bcm *bcm2711) handleEdgeButtonEdge(evt gpiod.LineEvent) {
+	fmt.Printf("button pressed\n")
 }
 
 // Init initialises GPIOs and sets sane defaults
-func (bcm *bcm2711) Init() {
-	bcm.InitGPIO()
+func (bcm *bcm2711) setup() error {
+	var err error = nil
+
+	// Register edge event handler for edge button
+	bcm.edgeButtonLine, err = bcm.gpioChip0.RequestLine(
+		rpi.GPIO20, gpiod.WithEventHandler(bcm.handleEdgeButtonEdge),
+		gpiod.WithFallingEdge, gpiod.WithPullUp, gpiod.WithDebounce(10*time.Millisecond))
+	if err != nil {
+		return err
+	}
+
+	// Register input for PoE detection
+	bcm.poeLine, err = bcm.gpioChip0.RequestLine(rpi.GPIO23, gpiod.AsInput)
+	if err != nil {
+		return err
+	}
+
+	// Register output for stealth mode
+	bcm.stealthModeLine, err = bcm.gpioChip0.RequestLine(rpi.GPIO21, gpiod.AsOutput(1))
+	if err != nil {
+		return err
+	}
+
+	// standard fan unit
+	if bcm.opts.FanUnit == hal.FanUnitStandard {
+		// FAN PWM output for standard fan unit (GPIO 12)
+		// -> bcm2711RegGpfsel1 8:6, alt0
+		bcm.gpioMem[bcm2711RegGpfsel1] = (bcm.gpioMem[bcm2711RegGpfsel1] &^ (0b111 << 6)) | (0b100 << 6)
+		// Register edge event handler for fan tach input
+		bcm.fanEdgeLine, err = bcm.gpioChip0.RequestLine(rpi.GPIO13, gpiod.WithEventHandler(bcm.handleFanEdge), gpiod.WithFallingEdge, gpiod.WithPullUp)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Setup defaults
+
 	bcm.SetFanSpeed(bcm.opts.Defaults.FanSpeed)
 	bcm.SetStealthMode(bcm.opts.Defaults.StealthModeEnabled)
 	bcm.SetLEDs(bcm.opts.Defaults.TopLedColor, bcm.opts.Defaults.EdgeLedColor)
+
+	return err
 }
 
-// InitGPIO initalises GPIO configuration
-func (bcm *bcm2711) InitGPIO() {
-	// based on https://datasheets.raspberrypi.com/bcm2711/bcm2711-peripherals.pdf
-	bcm.wrMutex.Lock()
-	defer bcm.wrMutex.Unlock()
-
-	// Edge Button (GPIO 20)
-	// -> bcm2711RegGpfsel2 2:0, input
-	bcm.gpioMem[bcm2711RegGpfsel2] = (bcm.gpioMem[bcm2711RegGpfsel2] &^ (0b111 << 0)) | (0b000 << 0)
-
-	// PoE at detection (GPIO 23)
-	// -> bcm2711RegGpfsel2 2:0, input
-	bcm.gpioMem[bcm2711RegGpfsel2] = (bcm.gpioMem[bcm2711RegGpfsel2] &^ (0b111 << 9)) | (0b000 << 9)
-
-	// Stealth Mode Output (GPIO 21)
-	// -> bcm2711RegGpfsel2 5:3, output
-	bcm.gpioMem[bcm2711RegGpfsel2] = (bcm.gpioMem[bcm2711RegGpfsel2] &^ (0b111 << 3)) | (0b001 << 3)
-
-	// FAN PWM output for standard fan unit (GPIO 12)
-	if bcm.opts.FanUnit == hal.FanUnitStandard {
-		// -> bcm2711RegGpfsel1 8:6, alt0
-		bcm.gpioMem[bcm2711RegGpfsel1] = (bcm.gpioMem[bcm2711RegGpfsel1] &^ (0b111 << 6)) | (0b100 << 6)
-	}
-
-	// FAN TACH input for standard fan unit (GPIO 13)
-	if bcm.opts.FanUnit == hal.FanUnitStandard {
-		// -> bcm2711RegGpfsel1 11:9, input
-		bcm.gpioMem[bcm2711RegGpfsel1] = (bcm.gpioMem[bcm2711RegGpfsel1] &^ (0b111 << 9)) | (0b000 << 9)
-	}
-
-	// Set WS2812 output (GPIO 18)
-	// -> bcm2711RegGpfsel1 24:26, set as regular output by default. On-demand, it's mapped to pwm0
-	bcm.gpioMem[bcm2711RegGpfsel1] = (bcm.gpioMem[bcm2711RegGpfsel1] &^ (0b111 << 24)) | (0b001 << 24)
+func (bcm2711 *bcm2711) GetFanSpeed() int {
+	return int(bcm2711.fanRpm)
 }
 
-func (bcm *bcm2711) GetPoeStatus() {
+func (bcm *bcm2711) GetPowerStatus() hal.PowerStatus {
 
+	// GPIO 23 is used for PoE detection
+	if val, err := bcm.poeLine.Value(); err != nil && val == 1 {
+		return hal.PowerPoe802at
+	}
+	return hal.PowerPoeOrUsbC
 }
 
 func (bcm *bcm2711) setPwm0Freq(targetFrequency uint64) error {
@@ -167,7 +227,7 @@ func (bcm *bcm2711) setPwm0Freq(targetFrequency uint64) error {
 	divisor := 54000000 / targetFrequency
 	realDivisor := divisor & 0xfff // 12 bits
 	if divisor != realDivisor {
-		return errors.New("invalid frequency, max divisor is 4095, calculated divisor is " + string(divisor))
+		return fmt.Errorf("invalid frequency, max divisor is 4095, calculated divisor is %d", divisor)
 	}
 
 	// Stop pwm for both channels; this is required to set the new configuration
@@ -241,15 +301,10 @@ func (bcm *bcm2711) setFanSpeedPWM(speed uint8) {
 }
 
 func (bcm *bcm2711) SetStealthMode(enable bool) {
-	bcm.wrMutex.Lock()
-	defer bcm.wrMutex.Unlock()
-
 	if enable {
-		// set high (bcm2711StealthPin == 21)
-		bcm.gpioMem[7] = 1 << (bcm2711StealthPin)
+		_ = bcm.stealthModeLine.SetValue(1)
 	} else {
-		// clear high state (bcm2711StealthPin == 21)
-		bcm.gpioMem[10] = 1 << (bcm2711StealthPin)
+		_ = bcm.stealthModeLine.SetValue(0)
 	}
 }
 
