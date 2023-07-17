@@ -1,4 +1,5 @@
-package bcm2711
+//go:build linux
+package hal
 
 import (
 	"os"
