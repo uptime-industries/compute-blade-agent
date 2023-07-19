@@ -1,4 +1,5 @@
 //go:build linux
+
 package hal
 
 import (
@@ -176,7 +177,7 @@ func (bcm *bcm283x) handleEdgeButtonEdge(evt gpiod.LineEvent) {
 }
 
 // GetEdgeButtonPressChan returns a channel that can be used to watch for edge button presses
-func (bcm *bcm283x) GetEdgeButtonPressChan(ctx context.Context) error {
+func (bcm *bcm283x) WaitForEdgeButtonPress(ctx context.Context) error {
 	// Either wait for the context to be cancelled or the edge button to be pressed
 	select {
 	case <-ctx.Done():

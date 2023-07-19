@@ -1,4 +1,4 @@
-package computeblade
+package ledengine
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/xvzf/computeblade-agent/pkg/computeblade/hal"
+	"github.com/xvzf/computeblade-agent/pkg/hal"
 	"github.com/xvzf/computeblade-agent/pkg/util"
 )
 
@@ -34,6 +34,34 @@ type BlinkPattern struct {
 	ActiveColor hal.LedColor
 	// Delays is a list of delays between changes -> (base) -> 0.5s(active) -> 1s(base) -> 0.5s (active) -> 1s (base)
 	Delays []time.Duration
+}
+
+func mapBrighnessUint8(brightness float64) uint8 {
+	return uint8(255.0 * brightness)
+}
+
+func LedColorPurple(brightness float64) hal.LedColor {
+	return hal.LedColor{
+		Red:   mapBrighnessUint8(brightness),
+		Green: 0,
+		Blue:  mapBrighnessUint8(brightness),
+	}
+}
+
+func LedColorRed(brightness float64) hal.LedColor {
+	return hal.LedColor{
+		Red:   mapBrighnessUint8(brightness),
+		Green: 0,
+		Blue:  0,
+	}
+}
+
+func LedColorGreen(brightness float64) hal.LedColor {
+	return hal.LedColor{
+		Red:   0,
+		Green: mapBrighnessUint8(brightness),
+		Blue:  0,
+	}
 }
 
 // NewStaticPattern creates a new static pattern (no color changes)
@@ -84,12 +112,16 @@ type LedEngineOpts struct {
 }
 
 func NewLedEngine(opts LedEngineOpts) *ledEngineImpl {
+	clock := opts.Clock
+	if clock == nil {
+		clock = util.RealClock{}
+	}
 	return &ledEngineImpl{
 		ledIdx:  opts.LedIdx,
 		hal:     opts.Hal,
 		restart: make(chan struct{}),              // restart channel controls cancelation of any pattern
 		pattern: NewStaticPattern(hal.LedColor{}), // Turn off LEDs by default
-		clock:   opts.Clock,
+		clock:   clock,
 	}
 }
 

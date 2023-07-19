@@ -1,4 +1,4 @@
-package computeblade_test
+package ledengine_test
 
 import (
 	"context"
@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/xvzf/computeblade-agent/pkg/computeblade"
-	"github.com/xvzf/computeblade-agent/pkg/computeblade/hal"
+	"github.com/xvzf/computeblade-agent/pkg/hal"
+	"github.com/xvzf/computeblade-agent/pkg/ledengine"
 	"github.com/xvzf/computeblade-agent/pkg/util"
 )
 
@@ -23,12 +23,12 @@ func TestNewStaticPattern(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want computeblade.BlinkPattern
+		want ledengine.BlinkPattern
 	}{
 		{
 			"Green",
 			args{hal.LedColor{Green: 255}},
-			computeblade.BlinkPattern{
+			ledengine.BlinkPattern{
 				BaseColor:   hal.LedColor{Green: 255},
 				ActiveColor: hal.LedColor{Green: 255},
 				Delays:      []time.Duration{time.Hour},
@@ -37,7 +37,7 @@ func TestNewStaticPattern(t *testing.T) {
 		{
 			"Red",
 			args{hal.LedColor{Red: 255}},
-			computeblade.BlinkPattern{
+			ledengine.BlinkPattern{
 				BaseColor:   hal.LedColor{Red: 255},
 				ActiveColor: hal.LedColor{Red: 255},
 				Delays:      []time.Duration{time.Hour},
@@ -46,7 +46,7 @@ func TestNewStaticPattern(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := computeblade.NewStaticPattern(tt.args.color); !reflect.DeepEqual(got, tt.want) {
+			if got := ledengine.NewStaticPattern(tt.args.color); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("NewStaticPattern() = %v, want %v", got, tt.want)
 			}
 		})
@@ -62,7 +62,7 @@ func TestNewBurstPattern(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want computeblade.BlinkPattern
+		want ledengine.BlinkPattern
 	}{
 		{
 			"Green <-> Red",
@@ -70,7 +70,7 @@ func TestNewBurstPattern(t *testing.T) {
 				baseColor:  hal.LedColor{Green: 255},
 				burstColor: hal.LedColor{Red: 255},
 			},
-			computeblade.BlinkPattern{
+			ledengine.BlinkPattern{
 				BaseColor:   hal.LedColor{Green: 255},
 				ActiveColor: hal.LedColor{Red: 255},
 				Delays: []time.Duration{
@@ -89,7 +89,7 @@ func TestNewBurstPattern(t *testing.T) {
 				baseColor:  hal.LedColor{Green: 255},
 				burstColor: hal.LedColor{Green: 255},
 			},
-			computeblade.BlinkPattern{
+			ledengine.BlinkPattern{
 				BaseColor:   hal.LedColor{Green: 255},
 				ActiveColor: hal.LedColor{Green: 255},
 				Delays: []time.Duration{
@@ -105,7 +105,7 @@ func TestNewBurstPattern(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := computeblade.NewBurstPattern(tt.args.baseColor, tt.args.burstColor); !reflect.DeepEqual(got, tt.want) {
+			if got := ledengine.NewBurstPattern(tt.args.baseColor, tt.args.burstColor); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("NewBurstPattern() = %v, want %v", got, tt.want)
 			}
 		})
@@ -120,17 +120,17 @@ func TestNewSlowBlinkPattern(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want computeblade.BlinkPattern
+		want ledengine.BlinkPattern
 	}{
 		// TODO: Add test cases.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := computeblade.NewSlowBlinkPattern(tt.args.baseColor, tt.args.activeColor); !reflect.DeepEqual(
+			if got := ledengine.NewSlowBlinkPattern(tt.args.baseColor, tt.args.activeColor); !reflect.DeepEqual(
 				got,
 				tt.want,
 			) {
-				t.Errorf("NewSlowcomputeblade.BlinkPattern() = %v, want %v", got, tt.want)
+				t.Errorf("NewSlowledengine.BlinkPattern() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -138,7 +138,7 @@ func TestNewSlowBlinkPattern(t *testing.T) {
 
 func TestNewLedEngine(t *testing.T) {
 	t.Parallel()
-	engine := computeblade.LedEngineOpts{
+	engine := ledengine.LedEngineOpts{
 		Clock:  util.RealClock{},
 		LedIdx: 0,
 		Hal:    &hal.ComputeBladeHalMock{},
@@ -157,13 +157,13 @@ func Test_LedEngine_SetPattern_WhileRunning(t *testing.T) {
 	cbMock.On("SetLed", uint(0), hal.LedColor{Green: 0, Blue: 0, Red: 0}).Once().Return(nil)
 	cbMock.On("SetLed", uint(0), hal.LedColor{Green: 0, Blue: 0, Red: 255}).Once().Return(nil)
 
-	opts := computeblade.LedEngineOpts{
+	opts := ledengine.LedEngineOpts{
 		Hal:    &cbMock,
 		Clock:  &clk,
 		LedIdx: 0,
 	}
 
-	engine := computeblade.NewLedEngine(opts)
+	engine := ledengine.NewLedEngine(opts)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -177,11 +177,11 @@ func Test_LedEngine_SetPattern_WhileRunning(t *testing.T) {
 	}()
 
 	// We want to change the pattern while the engine is running
-	time.Sleep(5*time.Millisecond)
+	time.Sleep(5 * time.Millisecond)
 
 	// Set pattern
 	t.Log("Setting pattern")
-	engine.SetPattern(computeblade.NewStaticPattern(hal.LedColor{Red: 255}))
+	engine.SetPattern(ledengine.NewStaticPattern(hal.LedColor{Red: 255}))
 
 	t.Log("Canceling context")
 	cancel()
@@ -201,16 +201,16 @@ func Test_LedEngine_SetPattern_BeforeRun(t *testing.T) {
 	cbMock := hal.ComputeBladeHalMock{}
 	cbMock.On("SetLed", uint(0), hal.LedColor{Green: 0, Blue: 0, Red: 255}).Once().Return(nil)
 
-	opts := computeblade.LedEngineOpts{
+	opts := ledengine.LedEngineOpts{
 		Hal:    &cbMock,
 		Clock:  &clk,
 		LedIdx: 0,
 	}
 
-	engine := computeblade.NewLedEngine(opts)
+	engine := ledengine.NewLedEngine(opts)
 	// We want to change the pattern BEFORE the engine is started
 	t.Log("Setting pattern")
-	engine.SetPattern(computeblade.NewStaticPattern(hal.LedColor{Red: 255}))
+	engine.SetPattern(ledengine.NewStaticPattern(hal.LedColor{Red: 255}))
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer cancel()
@@ -242,13 +242,13 @@ func Test_LedEngine_SetPattern_SetLedFailureInPattern(t *testing.T) {
 	call0 := cbMock.On("SetLed", uint(0), hal.LedColor{Green: 0, Blue: 0, Red: 0}).Once().Return(nil)
 	cbMock.On("SetLed", uint(0), hal.LedColor{Green: 0, Blue: 0, Red: 0}).Once().Return(errors.New("failure")).NotBefore(call0)
 
-	opts := computeblade.LedEngineOpts{
+	opts := ledengine.LedEngineOpts{
 		Hal:    &cbMock,
 		Clock:  &clk,
 		LedIdx: 0,
 	}
 
-	engine := computeblade.NewLedEngine(opts)
+	engine := ledengine.NewLedEngine(opts)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer cancel()
@@ -262,7 +262,7 @@ func Test_LedEngine_SetPattern_SetLedFailureInPattern(t *testing.T) {
 		assert.Error(t, err)
 		t.Log("LedEngine.Run() exited")
 	}()
-	time.Sleep(5*time.Millisecond)
+	time.Sleep(5 * time.Millisecond)
 
 	// Time tick -> SetLed() fails
 	clkAfterChan <- time.Now()
