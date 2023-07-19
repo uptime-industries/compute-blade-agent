@@ -323,12 +323,18 @@ func (a *computeBladeAgentImpl) Close() error {
 // runTopLedEngine runs the top LED engine
 func (a *computeBladeAgentImpl) runTopLedEngine(ctx context.Context) error {
 	// FIXME the top LED is only used to indicate emergency situations
-	a.edgeLedEngine.SetPattern(ledengine.NewStaticPattern(hal.LedColor{}))
+	err := a.edgeLedEngine.SetPattern(ledengine.NewStaticPattern(hal.LedColor{}))
+	if err != nil {
+		return err
+	}
 	return a.edgeLedEngine.Run(ctx)
 }
 
 // runEdgeLedEngine runs the edge LED engine
 func (a *computeBladeAgentImpl) runEdgeLedEngine(ctx context.Context) error {
-	a.edgeLedEngine.SetPattern(ledengine.NewStaticPattern(a.opts.IdleLedColor))
+	err := a.edgeLedEngine.SetPattern(ledengine.NewStaticPattern(a.opts.IdleLedColor))
+	if err != nil {
+		return err
+	}
 	return a.edgeLedEngine.Run(ctx)
 }

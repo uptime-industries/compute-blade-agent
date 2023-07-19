@@ -172,7 +172,8 @@ func Test_LedEngine_SetPattern_WhileRunning(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		t.Log("LedEngine.Run() started")
-		engine.Run(ctx)
+		err := engine.Run(ctx)
+		assert.ErrorIs(t, err, context.Canceled)
 		t.Log("LedEngine.Run() exited")
 	}()
 
@@ -181,7 +182,8 @@ func Test_LedEngine_SetPattern_WhileRunning(t *testing.T) {
 
 	// Set pattern
 	t.Log("Setting pattern")
-	engine.SetPattern(ledengine.NewStaticPattern(hal.LedColor{Red: 255}))
+	err := engine.SetPattern(ledengine.NewStaticPattern(hal.LedColor{Red: 255}))
+	assert.NoError(t, err)
 
 	t.Log("Canceling context")
 	cancel()
@@ -210,7 +212,8 @@ func Test_LedEngine_SetPattern_BeforeRun(t *testing.T) {
 	engine := ledengine.NewLedEngine(opts)
 	// We want to change the pattern BEFORE the engine is started
 	t.Log("Setting pattern")
-	engine.SetPattern(ledengine.NewStaticPattern(hal.LedColor{Red: 255}))
+	err := engine.SetPattern(ledengine.NewStaticPattern(hal.LedColor{Red: 255}))
+	assert.NoError(t, err)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer cancel()
@@ -220,7 +223,8 @@ func Test_LedEngine_SetPattern_BeforeRun(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		t.Log("LedEngine.Run() started")
-		engine.Run(ctx)
+		err := engine.Run(ctx)
+		assert.ErrorIs(t, err, context.DeadlineExceeded)
 		t.Log("LedEngine.Run() exited")
 	}()
 
