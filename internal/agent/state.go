@@ -16,7 +16,15 @@ var (
 	}, []string{"state"})
 )
 
-type computebladeState struct {
+type ComputebladeState interface {
+	RegisterEvent(event Event)
+	IdentifyActive() bool
+	WaitForIdentifyConfirm(ctx context.Context) error
+	CriticalActive() bool
+	WaitForCriticalClear(ctx context.Context) error
+}
+
+type computebladeStateImpl struct {
 	mutex sync.Mutex
 
 	// identifyActive indicates whether the blade is currently in identify mode
@@ -27,14 +35,14 @@ type computebladeState struct {
 	criticalConfirmChan chan struct{}
 }
 
-func NewComputeBladeState() *computebladeState {
-	return &computebladeState{
+func NewComputeBladeState() ComputebladeState {
+	return &computebladeStateImpl{
 		identifyConfirmChan: make(chan struct{}),
 		criticalConfirmChan: make(chan struct{}),
 	}
 }
 
-func (s *computebladeState) RegisterEvent(event Event) {
+func (s *computebladeStateImpl) RegisterEvent(event Event) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	switch event {
@@ -75,11 +83,11 @@ func (s *computebladeState) RegisterEvent(event Event) {
 	}
 }
 
-func (s *computebladeState) IdentifyActive() bool {
+func (s *computebladeStateImpl) IdentifyActive() bool {
 	return s.identifyActive
 }
 
-func (s *computebladeState) WaitForIdentifyConfirm(ctx context.Context) error {
+func (s *computebladeStateImpl) WaitForIdentifyConfirm(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -88,11 +96,11 @@ func (s *computebladeState) WaitForIdentifyConfirm(ctx context.Context) error {
 	}
 }
 
-func (s *computebladeState) CriticalActive() bool {
+func (s *computebladeStateImpl) CriticalActive() bool {
 	return s.criticalActive
 }
 
-func (s *computebladeState) WaitForCriticalConfirm(ctx context.Context) error {
+func (s *computebladeStateImpl) WaitForCriticalClear(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()

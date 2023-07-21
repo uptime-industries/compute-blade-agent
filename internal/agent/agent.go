@@ -98,7 +98,7 @@ type ComputeBladeAgent interface {
 type computeBladeAgentImpl struct {
 	opts          ComputeBladeAgentConfig
 	blade         hal.ComputeBladeHal
-	state         *computebladeState
+	state         ComputebladeState
 	edgeLedEngine ledengine.LedEngine
 	topLedEngine  ledengine.LedEngine
 
