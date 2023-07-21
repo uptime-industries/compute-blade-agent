@@ -21,16 +21,16 @@ type computebladeState struct {
 
 	// identifyActive indicates whether the blade is currently in identify mode
 	identifyActive    bool
-	identifyClearChan chan struct{}
+	identifyConfirmChan chan struct{}
 	// criticalActive indicates whether the blade is currently in critical mode
 	criticalActive    bool
-	criticalClearChan chan struct{}
+	criticalConfirmChan chan struct{}
 }
 
 func NewComputeBladeState() *computebladeState {
 	return &computebladeState{
-		identifyClearChan: make(chan struct{}),
-		criticalClearChan: make(chan struct{}),
+		identifyConfirmChan: make(chan struct{}),
+		criticalConfirmChan: make(chan struct{}),
 	}
 }
 
@@ -42,15 +42,15 @@ func (s *computebladeState) RegisterEvent(event Event) {
 		s.identifyActive = true
 	case IdentifyConfirmEvent:
 		s.identifyActive = false
-		close(s.identifyClearChan)
-		s.identifyClearChan = make(chan struct{})
+		close(s.identifyConfirmChan)
+		s.identifyConfirmChan = make(chan struct{})
 	case CriticalEvent:
 		s.criticalActive = true
 		s.identifyActive = false
 	case CriticalResetEvent:
 		s.criticalActive = false
-		close(s.criticalClearChan)
-		s.criticalClearChan = make(chan struct{})
+		close(s.criticalConfirmChan)
+		s.criticalConfirmChan = make(chan struct{})
 	}
 
 	// Set identify state metric
@@ -79,11 +79,11 @@ func (s *computebladeState) IdentifyActive() bool {
 	return s.identifyActive
 }
 
-func (s *computebladeState) WaitForIdentifyClear(ctx context.Context) error {
+func (s *computebladeState) WaitForIdentifyConfirm(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-	case <-s.identifyClearChan:
+	case <-s.identifyConfirmChan:
 		return nil
 	}
 }
@@ -92,11 +92,11 @@ func (s *computebladeState) CriticalActive() bool {
 	return s.criticalActive
 }
 
-func (s *computebladeState) WaitForCriticalClear(ctx context.Context) error {
+func (s *computebladeState) WaitForCriticalConfirm(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-	case <-s.criticalClearChan:
+	case <-s.criticalConfirmChan:
 		return nil
 	}
 }

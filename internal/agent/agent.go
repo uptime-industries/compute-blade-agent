@@ -79,10 +79,22 @@ type ComputeBladeAgentConfig struct {
 	CriticalTemperature uint
 }
 
+// ComputeBladeAgent implements the core-logic of the agent. It is responsible for handling events and interfacing with the hardware.
 type ComputeBladeAgent interface {
+	// Run dispatches the agent and blocks until the context is canceled or an error occurs
 	Run(ctx context.Context) error
+	// EmitEvent emits an event to the agent
+	EmitEvent(ctx context.Context, event Event) error
+	// SetFanSpeed sets the fan speed in percent
+	SetFanSpeed(_ context.Context, speed uint8) error
+	// SetStealthMode sets the stealth mode
+	SetStealthMode(_ context.Context, enabled bool) error
+
+	// WaitForIdentifyConfirm blocks until the user confirms the identify mode
+	WaitForIdentifyConfirm(ctx context.Context) error
 }
 
+// computeBladeAgentImpl is the implementation of the ComputeBladeAgent interface
 type computeBladeAgentImpl struct {
 	opts          ComputeBladeAgentConfig
 	blade         hal.ComputeBladeHal
@@ -251,7 +263,7 @@ func (a *computeBladeAgentImpl) handleEvent(ctx context.Context, event Event) er
 		return a.handleIdentifyActive(ctx)
 	case IdentifyConfirmEvent:
 		// Handle identify event
-		return a.handleIdentifyClear(ctx)
+		return a.handleIdentifyConfirm(ctx)
 	case EdgeButtonEvent:
 		// Handle edge button press to toggle identify mode
 		event := Event(IdentifyEvent)
@@ -274,7 +286,7 @@ func (a *computeBladeAgentImpl) handleIdentifyActive(ctx context.Context) error 
 	return a.edgeLedEngine.SetPattern(ledengine.NewBurstPattern(hal.LedColor{}, a.opts.IdentifyLedColor))
 }
 
-func (a *computeBladeAgentImpl) handleIdentifyClear(ctx context.Context) error {
+func (a *computeBladeAgentImpl) handleIdentifyConfirm(ctx context.Context) error {
 	log.FromContext(ctx).Info("Identify confirmed/cleared")
 	return a.edgeLedEngine.SetPattern(ledengine.NewStaticPattern(a.opts.IdleLedColor))
 }
@@ -323,11 +335,11 @@ func (a *computeBladeAgentImpl) Close() error {
 // runTopLedEngine runs the top LED engine
 func (a *computeBladeAgentImpl) runTopLedEngine(ctx context.Context) error {
 	// FIXME the top LED is only used to indicate emergency situations
-	err := a.edgeLedEngine.SetPattern(ledengine.NewStaticPattern(hal.LedColor{}))
+	err := a.topLedEngine.SetPattern(ledengine.NewStaticPattern(hal.LedColor{}))
 	if err != nil {
 		return err
 	}
-	return a.edgeLedEngine.Run(ctx)
+	return a.topLedEngine.Run(ctx)
 }
 
 // runEdgeLedEngine runs the edge LED engine
@@ -337,4 +349,35 @@ func (a *computeBladeAgentImpl) runEdgeLedEngine(ctx context.Context) error {
 		return err
 	}
 	return a.edgeLedEngine.Run(ctx)
+}
+
+// EmitEvent dispatches an event to the event handler
+func (a *computeBladeAgentImpl) EmitEvent(ctx context.Context, event Event) error {
+	select {
+	case a.eventChan <- event:
+		return nil
+	case <- ctx.Done():
+		return ctx.Err()
+	}
+}
+
+// SetFanSpeed sets the fan speed
+func (a *computeBladeAgentImpl) SetFanSpeed(_ context.Context, speed uint8) error {
+	if a.state.CriticalActive() {
+		return errors.New("cannot set fan speed while the blade is in a critical state")
+	}
+	return a.blade.SetFanSpeed(speed)
+}
+
+// SetStealthMode enables/disables the stealth mode
+func (a *computeBladeAgentImpl) SetStealthMode(_ context.Context, enabled bool) error {
+	if a.state.CriticalActive() {
+		return errors.New("cannot set stealth mode while the blade is in a critical state")
+	}
+	return a.blade.SetStealthMode(enabled)
+}
+
+// WaitForIdentifyConfirm waits for the identify confirm event
+func (a *computeBladeAgentImpl) WaitForIdentifyConfirm(ctx context.Context) error {
+	return a.state.WaitForIdentifyConfirm(ctx)
 }
