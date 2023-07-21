@@ -3,7 +3,6 @@ package ledengine
 import (
 	"context"
 	"errors"
-	"log"
 	"time"
 
 	"github.com/xvzf/computeblade-agent/pkg/hal"
@@ -154,7 +153,6 @@ func (b *ledEngineImpl) Run(ctx context.Context) error {
 				break PatternLoop
 			// Whenever the context is done, return
 			case <-ctx.Done():
-				log.Println("Context done")
 				return ctx.Err()
 			// Whenever the delay is over, change the color
 			case <-b.clock.After(delay):
