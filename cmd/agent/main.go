@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -11,10 +12,12 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	bladeapiv1alpha1 "github.com/xvzf/computeblade-agent/api/bladeapi/v1alpha1"
 	"github.com/xvzf/computeblade-agent/internal/agent"
 	"github.com/xvzf/computeblade-agent/pkg/ledengine"
 	"github.com/xvzf/computeblade-agent/pkg/log"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 )
 
 func main() {
@@ -29,7 +32,7 @@ func main() {
 	ctx, cancelCtx := context.WithCancelCause(baseCtx)
 	defer cancelCtx(context.Canceled)
 
-	agent, err := agent.NewComputeBladeAgent(agent.ComputeBladeAgentConfig{
+	computebladeAgent, err := agent.NewComputeBladeAgent(agent.ComputeBladeAgentConfig{
 		IdleLedColor:        ledengine.LedColorGreen(0.05),
 		IdentifyLedColor:    ledengine.LedColorPurple(0.05),
 		CriticalLedColor:    ledengine.LedColorRed(0.3),
@@ -61,11 +64,39 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		err := agent.Run(ctx)
+		err := computebladeAgent.Run(ctx)
 		if err != nil && err != context.Canceled {
 			log.FromContext(ctx).Error("Failed to run agent", zap.Error(err))
 			cancelCtx(err)
 		}
+	}()
+
+	// Setup GRPC server
+	// FIXME add logging middleware
+	grpcServer := grpc.NewServer()
+	bladeapiv1alpha1.RegisterBladeAgentServiceServer(grpcServer, agent.NewGrpcServiceFor(computebladeAgent))
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		socketPath := "/tmp/computeblade-agent.sock"
+		grpcListen, err := net.Listen("unix", "/tmp/computeblade-agent.sock")
+		if err != nil {
+			log.FromContext(ctx).Error("Failed to create grpc listener", zap.Error(err))
+			cancelCtx(err)
+			return
+		}
+		log.FromContext(ctx).Info("Starting grpc server", zap.String("address", socketPath))
+		if err := grpcServer.Serve(grpcListen); err != nil && err != grpc.ErrServerStopped {
+			log.FromContext(ctx).Error("Failed to start grpc server", zap.Error(err))
+			cancelCtx(err)
+		}
+	}()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		<-ctx.Done()
+		log.FromContext(ctx).Info("Shutting down grpc server")
+		grpcServer.GracefulStop()
 	}()
 
 	// setup prometheus endpoint

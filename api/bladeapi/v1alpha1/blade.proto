@@ -1,0 +1,61 @@
+syntax = "proto4";
+
+import "google/protobuf/empty.proto";
+package api.bladeapi.v1alpha1;
+
+option go_package = "github.com/xvzf/computeblade-agent/api/blade/v1alpha1;bladeapiv1alpha1";
+
+// Event is an event the agent reacts to
+enum Event {
+  IDENTIFY = 0;
+  IDENTIFY_CONFIRM = 1;
+  CRITICAL = 2;
+  CRITICAL_RESET = 3;
+}
+
+// FanUnit defines the fan unit detected by the blade
+enum FanUnit {
+  DEFAULT = 0;
+  SMART = 1;
+}
+
+// PowerStatus defines the power status of the blade
+enum PowerStatus {
+  POE_OR_USBC = 0;
+  POE_802_AT = 1;
+}
+
+message StealthModeRequest {
+  bool enable = 1;
+}
+
+message SetFanSpeedRequest {
+  int64 percent = 1;
+}
+
+message EmitEventRequest {
+  Event event = 1;
+}
+
+message StatusResponse {
+  bool stealth_mode = 1;
+  bool identify_active = 2;
+  bool critical_active = 3;
+  int64 temperature = 4;
+  int64 fan_rpm = 5;
+  PowerStatus power_status = 6;
+}
+
+service BladeAgentService {
+  // EmitEvent emits an event to the blade
+  rpc EmitEvent(EmitEventRequest) returns (google.protobuf.Empty) {}
+
+  // WaitForIdentifyConfirm blocks until the blades button is pressed
+  rpc WaitForIdentifyConfirm(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+
+  rpc SetFanSpeed(SetFanSpeedRequest) returns (google.protobuf.Empty) {}
+
+  rpc SetStealthMode(StealthModeRequest) returns (google.protobuf.Empty) {}
+
+  rpc GetStatus(google.protobuf.Empty) returns (StatusResponse) {}
+}
