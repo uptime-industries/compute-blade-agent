@@ -13,6 +13,9 @@ lint:
 generate: buf
 	$(BUF) generate
 
+release:
+	goreleaser release --clean
+
 # Dependencies
 LOCALBIN ?= $(shell pwd)/bin
 $(LOCALBIN):

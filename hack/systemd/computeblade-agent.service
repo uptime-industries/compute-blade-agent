@@ -1,0 +1,12 @@
+[Unit]
+Description=ComputeBlade Agent
+Documentation=https://github.com/xvzf/computeblade-agent
+After=network.target
+
+[Service]
+Restart=on-failure
+ExecStart=/usr/bin/computeblade-agent
+TimeoutStopSec=20s
+
+[Install]
+WantedBy=multi-user.target

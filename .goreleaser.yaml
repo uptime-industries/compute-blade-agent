@@ -1,0 +1,40 @@
+project_name: computeblade-agent
+
+release:
+  # This is not prod ready!
+  prerelease: true
+
+builds:
+  - env: &env
+    - CGO_ENABLED=0
+    goos: &goos
+    - linux
+    goarch: &goarch
+    - arm64
+    binary: computeblade-agent
+    id: agent
+    dir: ./cmd/agent/
+
+  - env: *env
+    goos: *goos
+    goarch: *goarch
+    binary: bladectl
+    id: bladectl
+    dir: ./cmd/bladectl/
+
+nfpms:
+- id: computeblade-agent
+  maintainer: Matthias Riegler <me@xvzf.tech>
+  description: Computeblade Agent
+  homepage: https://github.com/xvzf/computeblade-agent
+  license: Apache 2.0
+  formats:
+  - deb
+  - rpm
+  - archlinux
+  prerelease: alpha1
+  bindir: /usr/bin
+  contents:
+  - src: ./hack/systemd/computeblade-agent.service
+    dst: /etc/systemd/system/computeblade-agent.service
+    type: config
