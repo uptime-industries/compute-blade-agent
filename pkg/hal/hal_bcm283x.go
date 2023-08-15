@@ -45,6 +45,8 @@ const (
 	bcm283xRegPwmclkDiv            = 0x29
 	bcm283xRegPwmclkCntrlBitSrcOsc = 0
 	bcm283xRegPwmclkCntrlBitEnable = 4
+
+	bcm283xDebounceInterval = 100 * time.Millisecond
 )
 
 type bcm283x struct {
@@ -72,8 +74,9 @@ type bcm283x struct {
 	stealthModeLine *gpiod.Line
 
 	// Edge button input
-	edgeButtonLine      *gpiod.Line
-	edgeButtonWatchChan chan struct{}
+	edgeButtonLine         *gpiod.Line
+	edgeButtonDebounceChan chan struct{}
+	edgeButtonWatchChan    chan struct{}
 
 	// PoE detection input
 	poeLine *gpiod.Line
@@ -120,6 +123,7 @@ func NewCm4Hal(opts ComputeBladeHalOpts) (ComputeBladeHal, error) {
 		clkMem8:             clkMem8,
 		gpioChip0:           gpioChip0,
 		opts:                opts,
+		edgeButtonDebounceChan: make(chan struct{}, 1),
 		edgeButtonWatchChan: make(chan struct{}),
 	}
 
@@ -171,12 +175,25 @@ func (bcm *bcm283x) handleFanEdge(evt gpiod.LineEvent) {
 }
 
 func (bcm *bcm283x) handleEdgeButtonEdge(evt gpiod.LineEvent) {
-	edgeButtonEventCount.Inc()
-	close(bcm.edgeButtonWatchChan)
-	bcm.edgeButtonWatchChan = make(chan struct{})
+	// Despite the debounce, we still get multiple events for a single button press
+	// -> This is an in-software debounce to ensure we only get one event per button press
+	select {
+	case bcm.edgeButtonDebounceChan <- struct{}{}:
+		go func() {
+			// Manually debounce the button
+			defer <- bcm.edgeButtonDebounceChan
+			time.Sleep(bcm283xDebounceInterval)
+			edgeButtonEventCount.Inc()
+			close(bcm.edgeButtonWatchChan)
+			bcm.edgeButtonWatchChan = make(chan struct{})
+		}()
+	default:
+		// noop
+		return
+	}
 }
 
-// GetEdgeButtonPressChan returns a channel that can be used to watch for edge button presses
+// WaitForEdgeButtonPress blocks until the edge button has been pressed
 func (bcm *bcm283x) WaitForEdgeButtonPress(ctx context.Context) error {
 	// Either wait for the context to be cancelled or the edge button to be pressed
 	select {
@@ -194,7 +211,7 @@ func (bcm *bcm283x) setup() error {
 	// Register edge event handler for edge button
 	bcm.edgeButtonLine, err = bcm.gpioChip0.RequestLine(
 		rpi.GPIO20, gpiod.WithEventHandler(bcm.handleEdgeButtonEdge),
-		gpiod.WithFallingEdge, gpiod.WithPullUp, gpiod.WithDebounce(10*time.Millisecond))
+		gpiod.WithFallingEdge, gpiod.WithPullUp, gpiod.WithDebounce(50*time.Millisecond))
 	if err != nil {
 		return err
 	}
