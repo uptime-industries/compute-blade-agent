@@ -17,7 +17,10 @@ import (
 
 type grpcClientContextKey int
 
-const defaultGrpcClientContextKey grpcClientContextKey = 0
+const (
+	defaultGrpcClientContextKey     grpcClientContextKey = 0
+	defaultGrpcClientConnContextKey grpcClientContextKey = 1
+)
 
 var (
 	grpcAddr string
@@ -34,7 +37,7 @@ func clientIntoContext(ctx context.Context, client bladeapiv1alpha1.BladeAgentSe
 	return context.WithValue(ctx, defaultGrpcClientContextKey, client)
 }
 
-func clientFromContext(ctx context.Context) (bladeapiv1alpha1.BladeAgentServiceClient) {
+func clientFromContext(ctx context.Context) bladeapiv1alpha1.BladeAgentServiceClient {
 	client, ok := ctx.Value(defaultGrpcClientContextKey).(bladeapiv1alpha1.BladeAgentServiceClient)
 	if !ok {
 		panic("grpc client not found in context")
@@ -42,6 +45,17 @@ func clientFromContext(ctx context.Context) (bladeapiv1alpha1.BladeAgentServiceC
 	return client
 }
 
+func grpcConnIntoContext(ctx context.Context, grpcConn *grpc.ClientConn) context.Context {
+	return context.WithValue(ctx, defaultGrpcClientConnContextKey, grpcConn)
+}
+
+func grpcConnFromContext(ctx context.Context) *grpc.ClientConn {
+	grpcConn, ok := ctx.Value(defaultGrpcClientContextKey).(*grpc.ClientConn)
+	if !ok {
+		panic("grpc client connection not found in context")
+	}
+	return grpcConn
+}
 
 var rootCmd = &cobra.Command{
 	Use:   "bladectl",
@@ -65,16 +79,21 @@ var rootCmd = &cobra.Command{
 			}
 		}()
 
-		// FIXME handle conn teardown properly
-		// setup grpc client
 		conn, err := grpc.Dial(grpcAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			return fmt.Errorf("failed to dial grpc server: %w", err)
 		}
 		client := bladeapiv1alpha1.NewBladeAgentServiceClient(conn)
 
-		cmd.SetContext(clientIntoContext(ctx, client))
+		cmd.SetContext(
+			grpcConnIntoContext(clientIntoContext(ctx, client), conn),
+		)
 		return nil
+	},
+
+	// Ensure we're closing the grpc connection on exit
+	PersistentPostRunE: func(cmd *cobra.Command, _ []string) error {
+		return grpcConnFromContext(cmd.Context()).Close()
 	},
 }
 
