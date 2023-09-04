@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/http/pprof"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"sync"
@@ -14,6 +16,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	bladeapiv1alpha1 "github.com/xvzf/computeblade-agent/api/bladeapi/v1alpha1"
 	"github.com/xvzf/computeblade-agent/internal/agent"
+	"github.com/xvzf/computeblade-agent/pkg/fancontroller"
 	"github.com/xvzf/computeblade-agent/pkg/ledengine"
 	"github.com/xvzf/computeblade-agent/pkg/log"
 	"go.uber.org/zap"
@@ -24,7 +27,6 @@ func main() {
 	var wg sync.WaitGroup
 
 	// setup logger
-
 	zapLogger := zap.Must(zap.NewDevelopment()).With(zap.String("app", "computeblade-agent"))
 	_ = zap.ReplaceGlobals(zapLogger.With(zap.String("scope", "global")))
 	baseCtx := log.IntoContext(context.Background(), zapLogger)
@@ -33,11 +35,17 @@ func main() {
 	defer cancelCtx(context.Canceled)
 
 	computebladeAgent, err := agent.NewComputeBladeAgent(agent.ComputeBladeAgentConfig{
-		IdleLedColor:        ledengine.LedColorGreen(0.05),
-		IdentifyLedColor:    ledengine.LedColorPurple(0.05),
-		CriticalLedColor:    ledengine.LedColorRed(0.3),
-		StealthModeEnabled:  false,
-		DefaultFanSpeed:     40,
+		IdleLedColor:       ledengine.LedColorGreen(0.05),
+		IdentifyLedColor:   ledengine.LedColorPurple(0.05),
+		CriticalLedColor:   ledengine.LedColorRed(0.3),
+		StealthModeEnabled: false,
+		FanControllerConfig: fancontroller.FanControllerConfig{
+			Steps: []fancontroller.FanControllerStep{
+				{Temperature: 40, Speed: 40},
+				{Temperature: 55, Speed: 80},
+			},
+		},
+		FanUpdateInterval:   5 * time.Second,
 		CriticalTemperature: 60,
 	})
 	if err != nil {
@@ -100,15 +108,20 @@ func main() {
 	}()
 
 	// setup prometheus endpoint
-	promHandler := http.NewServeMux()
-	promHandler.Handle("/metrics", promhttp.Handler())
-	server := &http.Server{Addr: ":9666", Handler: promHandler}
+	instrumentationHandler := http.NewServeMux()
+	instrumentationHandler.Handle("/metrics", promhttp.Handler())
+	instrumentationHandler.HandleFunc("/debug/pprof/", pprof.Index)
+	instrumentationHandler.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	instrumentationHandler.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	instrumentationHandler.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	instrumentationHandler.HandleFunc("/debug/pprof/trace", pprof.Trace)
+	server := &http.Server{Addr: ":9666", Handler: instrumentationHandler}
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		err := server.ListenAndServe()
 		if err != nil && err != http.ErrServerClosed {
-			log.FromContext(ctx).Error("Failed to start prometheus server", zap.Error(err))
+			log.FromContext(ctx).Error("Failed to start prometheus/pprof server", zap.Error(err))
 			cancelCtx(err)
 		}
 	}()
@@ -120,7 +133,7 @@ func main() {
 		defer cancel()
 		err := server.Shutdown(shutdownCtx)
 		if err != nil {
-			log.FromContext(ctx).Error("Failed to shutdown prometheus server", zap.Error(err))
+			log.FromContext(ctx).Error("Failed to shutdown prometheus/pprof server", zap.Error(err))
 		}
 	}()
 

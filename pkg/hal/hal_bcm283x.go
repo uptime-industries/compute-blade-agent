@@ -6,7 +6,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
+	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -47,6 +50,8 @@ const (
 	bcm283xRegPwmclkCntrlBitEnable = 4
 
 	bcm283xDebounceInterval = 100 * time.Millisecond
+
+	bcm283xThermalZonePath = "/sys/class/thermal/thermal_zone0/temp"
 )
 
 type bcm283x struct {
@@ -114,17 +119,17 @@ func NewCm4Hal(opts ComputeBladeHalOpts) (ComputeBladeHal, error) {
 	}
 
 	bcm := &bcm283x{
-		devmem:              devmem,
-		gpioMem:             gpioMem,
-		gpioMem8:            gpioMem8,
-		pwmMem:              pwmMem,
-		pwmMem8:             pwmMem8,
-		clkMem:              clkMem,
-		clkMem8:             clkMem8,
-		gpioChip0:           gpioChip0,
-		opts:                opts,
+		devmem:                 devmem,
+		gpioMem:                gpioMem,
+		gpioMem8:               gpioMem8,
+		pwmMem:                 pwmMem,
+		pwmMem8:                pwmMem8,
+		clkMem:                 clkMem,
+		clkMem8:                clkMem8,
+		gpioChip0:              gpioChip0,
+		opts:                   opts,
 		edgeButtonDebounceChan: make(chan struct{}, 1),
-		edgeButtonWatchChan: make(chan struct{}),
+		edgeButtonWatchChan:    make(chan struct{}),
 	}
 
 	computeModule.WithLabelValues("cm4").Set(1)
@@ -181,7 +186,7 @@ func (bcm *bcm283x) handleEdgeButtonEdge(evt gpiod.LineEvent) {
 	case bcm.edgeButtonDebounceChan <- struct{}{}:
 		go func() {
 			// Manually debounce the button
-			defer <- bcm.edgeButtonDebounceChan
+			<-bcm.edgeButtonDebounceChan
 			time.Sleep(bcm283xDebounceInterval)
 			edgeButtonEventCount.Inc()
 			close(bcm.edgeButtonWatchChan)
@@ -439,4 +444,28 @@ func (bcm *bcm283x) updateLEDs() error {
 	time.Sleep(200 * time.Microsecond)
 
 	return nil
+}
+
+// GetTemperature returns the current temperature of the SoC
+func (bcm *bcm283x) GetTemperature() (float64, error) {
+	// Read temperature
+
+	f, err := os.Open(bcm283xThermalZonePath)
+	if err != nil {
+		return -1, err
+	}
+	raw, err := io.ReadAll(f)
+	if err != nil {
+		return -1, err
+	}
+
+	cpuTemp, err := strconv.Atoi(strings.TrimSpace(string(raw)))
+	if err != nil {
+		return -1, err
+	}
+
+	temp := float64(cpuTemp) / 1000.0
+	socTemperature.Set(temp)
+
+	return temp, nil
 }

@@ -9,12 +9,19 @@ run:
 lint:
 	golangci-lint run
 
+.PHONY: test
+test:
+	go test ./... -v
+
 .PHONY: generate
 generate: buf
 	$(BUF) generate
 
 release:
 	goreleaser release --clean
+
+snapshot:
+	goreleaser release --snapshot --skip-publish --clean
 
 # Dependencies
 LOCALBIN ?= $(shell pwd)/bin
