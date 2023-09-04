@@ -22,6 +22,11 @@ var (
 		Name:      "fan_speed",
 		Help:      "Fan speed in RPM",
 	})
+	socTemperature = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: "computeblade",
+		Name:      "soc_temperature",
+		Help:      "SoC temperature in °C",
+	})
 	computeModule = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: "computeblade",
 		Name:      "compute_modul_present",
@@ -103,6 +108,8 @@ type ComputeBladeHal interface {
 	SetLed(idx uint, color LedColor) error
 	// GetPowerStatus returns the current power status of the blade
 	GetPowerStatus() (PowerStatus, error)
+	// GetTemperature returns the current temperature of the SoC in °C
+	GetTemperature() (float64, error)
 	// GetEdgeButtonPressChan returns a channel emitting edge button press events
 	WaitForEdgeButtonPress(ctx context.Context) error
 }

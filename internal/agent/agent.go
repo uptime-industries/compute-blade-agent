@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/xvzf/computeblade-agent/pkg/fancontroller"
 	"github.com/xvzf/computeblade-agent/pkg/hal"
 	"github.com/xvzf/computeblade-agent/pkg/ledengine"
 	"github.com/xvzf/computeblade-agent/pkg/log"
@@ -60,7 +62,6 @@ func (e Event) String() string {
 }
 
 type ComputeBladeAgentConfig struct {
-
 	// IdleLedColor is the color of the edge LED when the blade is idle mode
 	IdleLedColor hal.LedColor
 	// IdentifyLedColor is the color of the edge LED when the blade is in identify mode
@@ -72,11 +73,11 @@ type ComputeBladeAgentConfig struct {
 	// StealthModeEnabled indicates whether stealth mode is enabled
 	StealthModeEnabled bool
 
-	// DefaultFanSpeed is the default fan speed in percent. Usually 40% is sufficient
-	DefaultFanSpeed uint
-
 	// Critical temperature of the compute blade (used to trigger critical mode)
 	CriticalTemperature uint
+
+	FanControllerConfig fancontroller.FanControllerConfig
+	FanUpdateInterval   time.Duration
 }
 
 // ComputeBladeAgent implements the core-logic of the agent. It is responsible for handling events and interfacing with the hardware.
@@ -101,6 +102,8 @@ type computeBladeAgentImpl struct {
 	state         ComputebladeState
 	edgeLedEngine ledengine.LedEngine
 	topLedEngine  ledengine.LedEngine
+
+	fanController fancontroller.FanController
 
 	eventChan chan Event
 }
@@ -132,13 +135,22 @@ func NewComputeBladeAgent(opts ComputeBladeAgentConfig) (ComputeBladeAgent, erro
 		return nil, err
 	}
 
+	fanController, err := fancontroller.NewLinearFanController(opts.FanControllerConfig)
+	if err != nil {
+		return nil, err
+	}
+
 	return &computeBladeAgentImpl{
 		opts:          opts,
 		blade:         blade,
 		edgeLedEngine: edgeLedEngine,
 		topLedEngine:  topLedEngine,
+		fanController: fanController,
 		state:         NewComputeBladeState(),
-		eventChan:     make(chan Event, 10), // backlog of 10 events. They should process fast but we e.g. don't want to miss button presses
+		eventChan: make(
+			chan Event,
+			10,
+		), // backlog of 10 events. They should process fast but we e.g. don't want to miss button presses
 	}, nil
 }
 
@@ -153,9 +165,6 @@ func (a *computeBladeAgentImpl) Run(origCtx context.Context) error {
 	a.state.RegisterEvent(NoopEvent)
 
 	// Set defaults
-	if err := a.blade.SetFanSpeed(uint8(a.opts.DefaultFanSpeed)); err != nil {
-		return err
-	}
 	if err := a.blade.SetStealthMode(a.opts.StealthModeEnabled); err != nil {
 		return err
 	}
@@ -202,6 +211,18 @@ func (a *computeBladeAgentImpl) Run(origCtx context.Context) error {
 		err := a.runEdgeLedEngine(ctx)
 		if err != nil && err != context.Canceled {
 			log.FromContext(ctx).Error("Edge LED engine failed", zap.Error(err))
+			cancelCtx(err)
+		}
+	}()
+
+	// Start fan controller
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		log.FromContext(ctx).Info("Starting fan controller")
+		err := a.runFanController(ctx)
+		if err != nil && err != context.Canceled {
+			log.FromContext(ctx).Error("Fan Controller Failed", zap.Error(err))
 			cancelCtx(err)
 		}
 	}()
@@ -295,7 +316,7 @@ func (a *computeBladeAgentImpl) handleCriticalActive(ctx context.Context) error 
 	log.FromContext(ctx).Warn("Blade in critical state, setting fan speed to 100% and turning on LEDs")
 
 	// Set fan speed to 100%
-	setFanspeedError := a.blade.SetFanSpeed(100)
+	a.fanController.Override(&fancontroller.FanOverrideOpts{Speed: 100})
 
 	// Disable stealth mode (turn on LEDs)
 	setStealthModeError := a.blade.SetStealthMode(false)
@@ -305,15 +326,13 @@ func (a *computeBladeAgentImpl) handleCriticalActive(ctx context.Context) error 
 		ledengine.NewSlowBlinkPattern(hal.LedColor{}, a.opts.CriticalLedColor),
 	)
 	// Combine errors, but don't stop execution flow for now
-	return errors.Join(setFanspeedError, setStealthModeError, setPatternTopLedErr)
+	return errors.Join(setStealthModeError, setPatternTopLedErr)
 }
 
 func (a *computeBladeAgentImpl) handleCriticalReset(ctx context.Context) error {
 	log.FromContext(ctx).Info("Critical state cleared, setting fan speed to default and restoring LEDs to default state")
-	// Set fan speed to 100%
-	if err := a.blade.SetFanSpeed(uint8(a.opts.DefaultFanSpeed)); err != nil {
-		return err
-	}
+	// Reset fan controller overrides
+	a.fanController.Override(nil)
 
 	// Reset stealth mode
 	if err := a.blade.SetStealthMode(a.opts.StealthModeEnabled); err != nil {
@@ -351,12 +370,41 @@ func (a *computeBladeAgentImpl) runEdgeLedEngine(ctx context.Context) error {
 	return a.edgeLedEngine.Run(ctx)
 }
 
+func (a *computeBladeAgentImpl) runFanController(ctx context.Context) error {
+	// Update fan speed periodically
+	ticker := time.NewTicker(a.opts.FanUpdateInterval)
+
+	for {
+
+		// Wait for the next tick
+		select {
+		case <-ctx.Done():
+			ticker.Stop()
+			return ctx.Err()
+		case <-ticker.C:
+		}
+
+		// Get temperature
+		temp, err := a.blade.GetTemperature()
+		if err != nil {
+			log.FromContext(ctx).Error("Failed to get temperature", zap.Error(err))
+			temp = 100 // set to a high value to trigger the maximum speed defined by the fan curve
+		}
+		// Derive fan speed from temperature
+		speed := a.fanController.GetFanSpeed(temp)
+		// Set fan speed
+		if err := a.blade.SetFanSpeed(speed); err != nil {
+			log.FromContext(ctx).Error("Failed to set fan speed", zap.Error(err))
+		}
+	}
+}
+
 // EmitEvent dispatches an event to the event handler
 func (a *computeBladeAgentImpl) EmitEvent(ctx context.Context, event Event) error {
 	select {
 	case a.eventChan <- event:
 		return nil
-	case <- ctx.Done():
+	case <-ctx.Done():
 		return ctx.Err()
 	}
 }
@@ -366,7 +414,8 @@ func (a *computeBladeAgentImpl) SetFanSpeed(_ context.Context, speed uint8) erro
 	if a.state.CriticalActive() {
 		return errors.New("cannot set fan speed while the blade is in a critical state")
 	}
-	return a.blade.SetFanSpeed(speed)
+	a.fanController.Override(&fancontroller.FanOverrideOpts{Speed: speed})
+	return nil
 }
 
 // SetStealthMode enables/disables the stealth mode

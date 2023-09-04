@@ -76,3 +76,8 @@ func (m *SimulatedHal) SetLed(idx uint, color LedColor) error {
 	m.logger.Info("SetLed", zap.Uint("idx", idx), zap.Any("color", color))
 	return nil
 }
+
+func (m *SimulatedHal) GetTemperature() (float64, error) {
+	m.logger.Info("GetTemperature")
+	return 42, nil
+}

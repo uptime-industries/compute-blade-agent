@@ -48,3 +48,8 @@ func (m *ComputeBladeHalMock) SetLed(idx uint, color LedColor) error {
 	args := m.Called(idx, color)
 	return args.Error(0)
 }
+
+func (m *ComputeBladeHalMock) GetTemperature() (float64, error) {
+	args := m.Called()
+	return args.Get(0).(float64), args.Error(1)
+}
