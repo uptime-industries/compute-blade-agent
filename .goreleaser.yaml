@@ -18,6 +18,33 @@ builds:
     id: bladectl
     dir: ./cmd/bladectl/
 
+# Docker image including both agent and bladectl
+dockers:
+  - id: oci-bundle
+    dockerfile: Dockerfile
+    goos: linux
+    goarch: arm64
+    ids:
+    - agent
+    - bladectl
+    image_templates:
+      - ghcr.io/uptime-lab/computeblade-agent:latest
+      - ghcr.io/uptime-lab/computeblade-agent:{{ .Tag }}
+      - ghcr.io/uptime-lab/computeblade-agent:v{{ .Major }}
+    build_flag_templates:
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--platform=linux/arm64"
+# Sign docker-image with cosign (keyless)
+docker_signs:
+  - id: oci-bundle-sign
+    artifacts: all
+    ids:
+    - oci-bundle
+
+# Regular OS packages (for now only systemd based OSes)
 nfpms:
 - id: computeblade-agent
   maintainer: Matthias Riegler <me@xvzf.tech>
