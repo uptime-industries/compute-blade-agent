@@ -1,0 +1,36 @@
+name: ci
+
+on:
+  push:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout code (full history)
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Setup golang with caching
+      - name: Setup Golang
+        uses: actions/setup-go@v4
+        with:
+          go-version: stable
+      - id: go-cache-paths
+        run: |
+          echo "name=go-build::$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
+          echo "name=go-mod::$(go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
+      - name: Go Build Cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ steps.go-cache-paths.outputs.go-build }}
+          key: ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
+      - name: Go Mod Cache
+        uses: actions/cache@v2
+        with:
+          path: ${{ steps.go-cache-paths.outputs.go-mod }}
+          key: ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
+
+      # Run tests
+      - name: Run tests
+        run: make test
