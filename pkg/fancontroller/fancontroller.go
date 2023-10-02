@@ -11,20 +11,20 @@ type FanController interface {
 }
 
 type FanOverrideOpts struct {
-	Speed uint8
+	Percent uint8 `mapstructure:"speed"`
 }
 
 type FanControllerStep struct {
 	// Temperature is the temperature to react to
-	Temperature float64
-	// Speed is the fan speed in percent
-	Speed uint8
+	Temperature float64 `mapstructure:"temperature"`
+	// Percent is the fan speed in percent
+	Percent uint8 `mapstructure:"percent"`
 }
 
 // FanController configures a fan controller for the computeblade
 type FanControllerConfig struct {
 	// Steps defines the temperature/speed steps for the fan controller
-	Steps []FanControllerStep
+	Steps []FanControllerStep `mapstructure:"steps"`
 }
 
 // FanController is a simple fan controller that reacts to temperature changes with a linear function
@@ -44,10 +44,10 @@ func NewLinearFanController(config FanControllerConfig) (FanController, error) {
 	if config.Steps[0].Temperature > config.Steps[1].Temperature {
 		return nil, fmt.Errorf("step 1 temperature must be lower than step 2 temperature")
 	}
-	if config.Steps[0].Speed > config.Steps[1].Speed {
+	if config.Steps[0].Percent > config.Steps[1].Percent {
 		return nil, fmt.Errorf("step 1 speed must be lower than step 2 speed")
 	}
-	if config.Steps[0].Speed > 100 || config.Steps[1].Speed > 100 {
+	if config.Steps[0].Percent > 100 || config.Steps[1].Percent > 100 {
 		return nil, fmt.Errorf("speed must be between 0 and 100")
 	}
 
@@ -68,21 +68,21 @@ func (f *fanControllerLinear) GetFanSpeed(temperature float64) uint8 {
 	defer f.mu.Unlock()
 
 	if f.overrideOpts != nil {
-		return f.overrideOpts.Speed
+		return f.overrideOpts.Percent
 	}
 
 	if temperature <= f.config.Steps[0].Temperature {
-		return f.config.Steps[0].Speed
+		return f.config.Steps[0].Percent
 	}
 	if temperature >= f.config.Steps[1].Temperature {
-		return f.config.Steps[1].Speed
+		return f.config.Steps[1].Percent
 	}
 
 	// Calculate slope
-	slope := float64(f.config.Steps[1].Speed-f.config.Steps[0].Speed) / (f.config.Steps[1].Temperature - f.config.Steps[0].Temperature)
+	slope := float64(f.config.Steps[1].Percent-f.config.Steps[0].Percent) / (f.config.Steps[1].Temperature - f.config.Steps[0].Temperature)
 
 	// Calculate speed
-	speed := float64(f.config.Steps[0].Speed) + slope*(temperature-f.config.Steps[0].Temperature)
+	speed := float64(f.config.Steps[0].Percent) + slope*(temperature-f.config.Steps[0].Temperature)
 
 	return uint8(speed)
 }

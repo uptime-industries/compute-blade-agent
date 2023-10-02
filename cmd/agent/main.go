@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net"
@@ -8,45 +9,70 @@ import (
 	"net/http/pprof"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
 
+	_ "embed"
+
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/spf13/viper"
 	bladeapiv1alpha1 "github.com/xvzf/computeblade-agent/api/bladeapi/v1alpha1"
 	"github.com/xvzf/computeblade-agent/internal/agent"
-	"github.com/xvzf/computeblade-agent/pkg/fancontroller"
-	"github.com/xvzf/computeblade-agent/pkg/ledengine"
 	"github.com/xvzf/computeblade-agent/pkg/log"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
 
+// embed default configuration
+
+//go:embed default-config.yaml
+var defaultConfig []byte
+
 func main() {
 	var wg sync.WaitGroup
 
+	// Setup configuration
+	viper.SetConfigType("yaml")
+	// auto-bind environment variables
+	viper.SetEnvPrefix("AGENT")
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	viper.AutomaticEnv()
+	// Load potential file configs
+	if err := viper.ReadConfig(bytes.NewBuffer(defaultConfig)); err != nil {
+		panic(err)
+	}
+
 	// setup logger
-	zapLogger := zap.Must(zap.NewDevelopment()).With(zap.String("app", "computeblade-agent"))
+	var baseLogger *zap.Logger
+	switch logMode := viper.GetString("log.mode"); logMode {
+	case "development":
+		baseLogger = zap.Must(zap.NewDevelopment())
+	case "production":
+		baseLogger = zap.Must(zap.NewProduction())
+	default:
+		panic(fmt.Errorf("invalid log.mode: %s", logMode))
+	}
+
+	zapLogger := baseLogger.With(zap.String("app", "computeblade-agent"))
+	defer zapLogger.Sync()
 	_ = zap.ReplaceGlobals(zapLogger.With(zap.String("scope", "global")))
 	baseCtx := log.IntoContext(context.Background(), zapLogger)
 
 	ctx, cancelCtx := context.WithCancelCause(baseCtx)
 	defer cancelCtx(context.Canceled)
 
-	computebladeAgent, err := agent.NewComputeBladeAgent(agent.ComputeBladeAgentConfig{
-		IdleLedColor:       ledengine.LedColorGreen(0.05),
-		IdentifyLedColor:   ledengine.LedColorPurple(0.05),
-		CriticalLedColor:   ledengine.LedColorRed(0.3),
-		StealthModeEnabled: false,
-		FanControllerConfig: fancontroller.FanControllerConfig{
-			Steps: []fancontroller.FanControllerStep{
-				{Temperature: 40, Speed: 40},
-				{Temperature: 55, Speed: 80},
-			},
-		},
-		FanUpdateInterval:   5 * time.Second,
-		CriticalTemperature: 60,
-	})
+	// load configuration
+	var cbAgentConfig agent.ComputeBladeAgentConfig
+	if err := viper.Unmarshal(&cbAgentConfig); err != nil {
+		log.FromContext(ctx).Error("Failed to load configuration", zap.Error(err))
+		cancelCtx(err)
+	}
+	fmt.Printf("cbAgentConfig: %+v\n", cbAgentConfig)
+	os.Exit(1)
+
+	computebladeAgent, err := agent.NewComputeBladeAgent(cbAgentConfig)
 	if err != nil {
 		log.FromContext(ctx).Error("Failed to create agent", zap.Error(err))
 		cancelCtx(err)
@@ -85,14 +111,13 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		socketPath := "/tmp/computeblade-agent.sock"
-		grpcListen, err := net.Listen("unix", "/tmp/computeblade-agent.sock")
+		grpcListen, err := net.Listen("unix", viper.GetString("listen.grpc"))
 		if err != nil {
 			log.FromContext(ctx).Error("Failed to create grpc listener", zap.Error(err))
 			cancelCtx(err)
 			return
 		}
-		log.FromContext(ctx).Info("Starting grpc server", zap.String("address", socketPath))
+		log.FromContext(ctx).Info("Starting grpc server", zap.String("address", viper.GetString("listen.grpc")))
 		if err := grpcServer.Serve(grpcListen); err != nil && err != grpc.ErrServerStopped {
 			log.FromContext(ctx).Error("Failed to start grpc server", zap.Error(err))
 			cancelCtx(err)
