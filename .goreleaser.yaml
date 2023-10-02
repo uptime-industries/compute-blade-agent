@@ -28,9 +28,9 @@ dockers:
     - agent
     - bladectl
     image_templates:
-      - ghcr.io/uptime-lab/computeblade-agent/agent:latest
-      - ghcr.io/uptime-lab/computeblade-agent/agent:{{ .Tag }}
-      - ghcr.io/uptime-lab/computeblade-agent/agent:v{{ .Major }}
+      - ghcr.io/uptime-lab/computeblade-agent:latest
+      - ghcr.io/uptime-lab/computeblade-agent:{{ .Tag }}
+      - ghcr.io/uptime-lab/computeblade-agent:v{{ .Major }}
     build_flag_templates:
       - "--label=org.opencontainers.image.created={{.Date}}"
       - "--label=org.opencontainers.image.title={{.ProjectName}}"
@@ -41,6 +41,12 @@ dockers:
 docker_signs:
   - id: oci-bundle-sign
     artifacts: all
+    args:
+    - "sign"
+    - --oidc-issuer=https://token.actions.githubusercontent.com
+    - --upload=false
+    - "${artifact}"
+    - --yes
     ids:
     - oci-bundle
 
