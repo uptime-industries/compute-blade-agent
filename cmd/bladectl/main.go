@@ -90,11 +90,6 @@ var rootCmd = &cobra.Command{
 		)
 		return nil
 	},
-
-	// Ensure we're closing the grpc connection on exit
-	PersistentPostRunE: func(cmd *cobra.Command, _ []string) error {
-		return grpcConnFromContext(cmd.Context()).Close()
-	},
 }
 
 func main() {
