@@ -69,8 +69,6 @@ func main() {
 		log.FromContext(ctx).Error("Failed to load configuration", zap.Error(err))
 		cancelCtx(err)
 	}
-	fmt.Printf("cbAgentConfig: %+v\n", cbAgentConfig)
-	os.Exit(1)
 
 	computebladeAgent, err := agent.NewComputeBladeAgent(cbAgentConfig)
 	if err != nil {
