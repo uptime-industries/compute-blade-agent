@@ -37,6 +37,7 @@ dockers:
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
       - "--label=org.opencontainers.image.version={{.Version}}"
       - "--platform=linux/arm64"
+
 # Sign docker-image with cosign (keyless)
 docker_signs:
   - id: oci-bundle-sign
@@ -49,6 +50,19 @@ docker_signs:
     - --yes
     ids:
     - oci-bundle
+
+# Sign everything else
+signs:
+   - cmd: cosign
+     signature: "${artifact}.sig"
+     certificate: "${artifact}.pem"
+     args:
+     - sign-blob
+     - --oidc-issuer=https://token.actions.githubusercontent.com
+     - "--output-certificate=${certificate}"
+     - "--output-signature=${signature}"
+     - "${artifact}"
+     artifacts: all
 
 # Regular OS packages (for now only systemd based OSes)
 nfpms:
