@@ -63,21 +63,23 @@ func (e Event) String() string {
 
 type ComputeBladeAgentConfig struct {
 	// IdleLedColor is the color of the edge LED when the blade is idle mode
-	IdleLedColor hal.LedColor
+	IdleLedColor hal.LedColor `mapstructure:"idle_led_color"`
 	// IdentifyLedColor is the color of the edge LED when the blade is in identify mode
-	IdentifyLedColor hal.LedColor
+	IdentifyLedColor hal.LedColor `mapstructure:"identify_led_color"`
 	// CriticalLedColor is the color of the top(!) LED when the blade is in critical mode.
 	// In the circumstance when >1 blades are in critical mode, the identidy function can be used to find the right blade
-	CriticalLedColor hal.LedColor
+	CriticalLedColor hal.LedColor `mapstructure:"critical_led_color"`
 
 	// StealthModeEnabled indicates whether stealth mode is enabled
-	StealthModeEnabled bool
+	StealthModeEnabled bool `mapstructure:"stealth_mode"`
 
 	// Critical temperature of the compute blade (used to trigger critical mode)
-	CriticalTemperature uint
+	CriticalTemperatureThreshold uint `mapstructure:"critical_temperature_threshold"`
 
-	FanControllerConfig fancontroller.FanControllerConfig
-	FanUpdateInterval   time.Duration
+	// FanSpeed allows to set a fixed fan speed (in percent)
+	FanSpeed *fancontroller.FanOverrideOpts `mapstructure:"fan_speed"`
+	// FanControllerConfig is the configuration of the fan controller
+	FanControllerConfig fancontroller.FanControllerConfig `mapstructure:"fan_controller"`
 }
 
 // ComputeBladeAgent implements the core-logic of the agent. It is responsible for handling events and interfacing with the hardware.
@@ -316,7 +318,7 @@ func (a *computeBladeAgentImpl) handleCriticalActive(ctx context.Context) error 
 	log.FromContext(ctx).Warn("Blade in critical state, setting fan speed to 100% and turning on LEDs")
 
 	// Set fan speed to 100%
-	a.fanController.Override(&fancontroller.FanOverrideOpts{Speed: 100})
+	a.fanController.Override(&fancontroller.FanOverrideOpts{Percent: 100})
 
 	// Disable stealth mode (turn on LEDs)
 	setStealthModeError := a.blade.SetStealthMode(false)
@@ -372,7 +374,7 @@ func (a *computeBladeAgentImpl) runEdgeLedEngine(ctx context.Context) error {
 
 func (a *computeBladeAgentImpl) runFanController(ctx context.Context) error {
 	// Update fan speed periodically
-	ticker := time.NewTicker(a.opts.FanUpdateInterval)
+	ticker := time.NewTicker(15 * time.Second)
 
 	for {
 
@@ -414,7 +416,7 @@ func (a *computeBladeAgentImpl) SetFanSpeed(_ context.Context, speed uint8) erro
 	if a.state.CriticalActive() {
 		return errors.New("cannot set fan speed while the blade is in a critical state")
 	}
-	a.fanController.Override(&fancontroller.FanOverrideOpts{Speed: speed})
+	a.fanController.Override(&fancontroller.FanOverrideOpts{Percent: speed})
 	return nil
 }
 

@@ -60,3 +60,6 @@ nfpms:
   - src: ./hack/systemd/computeblade-agent.service
     dst: /etc/systemd/system/computeblade-agent.service
     type: config
+  - src: ./cmd/agent/default-config.yaml
+    dst: /etc/computeblade-agent/config.yaml
+    type: config

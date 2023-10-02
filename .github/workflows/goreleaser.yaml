@@ -1,0 +1,60 @@
+name: gorelease
+
+on:
+  push:
+    tags:
+      - '*'
+
+permissions: write-all
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout code (full history)
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Setup golang with caching
+      - name: Setup Golang
+        uses: actions/setup-go@v4
+        with:
+          go-version: stable
+      - id: go-cache-paths
+        run: |
+          echo "go-build=$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
+          echo "go-mod=$(go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
+      - name: Go Build Cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ steps.go-cache-paths.outputs.go-build }}
+          key: ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
+      - name: Go Mod Cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ steps.go-cache-paths.outputs.go-mod }}
+          key: ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
+
+      # Setup docker buildx
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Install cosign
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
+      # Run goreleaser
+      - name: Goreleaser
+        uses: goreleaser/goreleaser-action@v5
+        with:
+          version: latest
+          args: release --clean
+        env:
+          COSIGN_YES: "true"
+          KO_DOCKER_REPO: ghcr.io/${{ github.repository }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
