@@ -1,5 +1,5 @@
 # computeblade-agent
-> :warning: this is still a beta-release & configuration&APIs might see breaking changes!
+> :warning: this is still a beta-release & configuration&APIs might see breaking changes! It's not 100% feature complete yet but works
 
 The `computeblade-agent` is an OS agent interfacing with the [ComputeBlade](http://computeblade.com) hardware.
 It controls fan speed, LEDs and handles common events e.g.  to _identify_/find an individual blade in a server rack.
