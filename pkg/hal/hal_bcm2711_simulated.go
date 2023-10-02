@@ -17,7 +17,7 @@ type SimulatedHal struct {
 	logger *zap.Logger
 }
 
-func NewCm4Hal(opts ComputeBladeHalOpts) (ComputeBladeHal, error) {
+func NewCm4Hal(_ ComputeBladeHalOpts) (ComputeBladeHal, error) {
 	logger := zap.L().Named("hal").Named("simulated-cm4")
 	logger.Warn("Using simulated hal")
 

@@ -19,42 +19,42 @@ import (
 )
 
 const (
-	bcm283xPeripheryBaseAddr = 0xFE000000
-	bcm283xRegPwmAddr        = bcm283xPeripheryBaseAddr + 0x20C000
-	bcm283xGpioAddr          = bcm283xPeripheryBaseAddr + 0x200000
-	bcm283xClkAddr           = bcm283xPeripheryBaseAddr + 0x101000
-	bcm283xClkManagerPwd     = (0x5A << 24) //(31 - 24) on CM_GP0CTL/CM_GP1CTL/CM_GP2CTL regs
-	bcm283xPageSize          = 4096         // theoretical page size
+	bcm2711PeripheryBaseAddr = 0xFE000000
+	bcm2711RegPwmAddr        = bcm2711PeripheryBaseAddr + 0x20C000
+	bcm2711GpioAddr          = bcm2711PeripheryBaseAddr + 0x200000
+	bcm2711ClkAddr           = bcm2711PeripheryBaseAddr + 0x101000
+	bcm2711ClkManagerPwd     = (0x5A << 24) //(31 - 24) on CM_GP0CTL/CM_GP1CTL/CM_GP2CTL regs
+	bcm2711PageSize          = 4096         // theoretical page size
 
-	bcm283xFrontButtonPin = 20
-	bcm283xStealthPin     = 21
-	bcm283xRegPwmTachPin  = 13
+	bcm2711FrontButtonPin = 20
+	bcm2711StealthPin     = 21
+	bcm2711RegPwmTachPin  = 13
 
-	bcm283xRegGpfsel1 = 0x01
+	bcm2711RegGpfsel1 = 0x01
 
-	bcm283xRegPwmCtl  = 0x00
-	bcm283xRegPwmRng1 = 0x04
-	bcm283xRegPwmFif1 = 0x06
+	bcm2711RegPwmCtl  = 0x00
+	bcm2711RegPwmRng1 = 0x04
+	bcm2711RegPwmFif1 = 0x06
 
-	bcm283xRegPwmCtlBitPwen2 = 8 // Enable (pwm2)
-	bcm283xRegPwmCtlBitClrf1 = 6 // Clear FIFO
-	bcm283xRegPwmCtlBitUsef1 = 5 // Use FIFO
-	bcm283xRegPwmCtlBitSbit1 = 3 // Line level when not transmitting
-	bcm283xRegPwmCtlBitRptl1 = 2 // Repeat last data when FIFO is empty
-	bcm283xRegPwmCtlBitMode1 = 1 // Mode; 0: PWM, 1: Serializer
-	bcm283xRegPwmCtlBitPwen1 = 0 // Enable (pwm1)
+	bcm2711RegPwmCtlBitPwen2 = 8 // Enable (pwm2)
+	bcm2711RegPwmCtlBitClrf1 = 6 // Clear FIFO
+	bcm2711RegPwmCtlBitUsef1 = 5 // Use FIFO
+	bcm2711RegPwmCtlBitSbit1 = 3 // Line level when not transmitting
+	bcm2711RegPwmCtlBitRptl1 = 2 // Repeat last data when FIFO is empty
+	bcm2711RegPwmCtlBitMode1 = 1 // Mode; 0: PWM, 1: Serializer
+	bcm2711RegPwmCtlBitPwen1 = 0 // Enable (pwm1)
 
-	bcm283xRegPwmclkCntrl          = 0x28
-	bcm283xRegPwmclkDiv            = 0x29
-	bcm283xRegPwmclkCntrlBitSrcOsc = 0
-	bcm283xRegPwmclkCntrlBitEnable = 4
+	bcm2711RegPwmclkCntrl          = 0x28
+	bcm2711RegPwmclkDiv            = 0x29
+	bcm2711RegPwmclkCntrlBitSrcOsc = 0
+	bcm2711RegPwmclkCntrlBitEnable = 4
 
-	bcm283xDebounceInterval = 100 * time.Millisecond
+	bcm2711DebounceInterval = 100 * time.Millisecond
 
-	bcm283xThermalZonePath = "/sys/class/thermal/thermal_zone0/temp"
+	bcm2711ThermalZonePath = "/sys/class/thermal/thermal_zone0/temp"
 )
 
-type bcm283x struct {
+type bcm2711 struct {
 	// Config options
 	opts ComputeBladeHalOpts
 
@@ -105,20 +105,20 @@ func NewCm4Hal(opts ComputeBladeHalOpts) (ComputeBladeHal, error) {
 	}
 
 	// Setup memory mappings
-	gpioMem, gpioMem8, err := mmap(devmem, bcm283xGpioAddr, bcm283xPageSize)
+	gpioMem, gpioMem8, err := mmap(devmem, bcm2711GpioAddr, bcm2711PageSize)
 	if err != nil {
 		return nil, err
 	}
-	pwmMem, pwmMem8, err := mmap(devmem, bcm283xRegPwmAddr, bcm283xPageSize)
+	pwmMem, pwmMem8, err := mmap(devmem, bcm2711RegPwmAddr, bcm2711PageSize)
 	if err != nil {
 		return nil, err
 	}
-	clkMem, clkMem8, err := mmap(devmem, bcm283xClkAddr, bcm283xPageSize)
+	clkMem, clkMem8, err := mmap(devmem, bcm2711ClkAddr, bcm2711PageSize)
 	if err != nil {
 		return nil, err
 	}
 
-	bcm := &bcm283x{
+	bcm := &bcm2711{
 		devmem:                 devmem,
 		gpioMem:                gpioMem,
 		gpioMem8:               gpioMem8,
@@ -138,7 +138,7 @@ func NewCm4Hal(opts ComputeBladeHalOpts) (ComputeBladeHal, error) {
 }
 
 // Close cleans all memory mappings
-func (bcm *bcm283x) Close() error {
+func (bcm *bcm2711) Close() error {
 	errs := errors.Join(
 		syscall.Munmap(bcm.gpioMem8),
 		syscall.Munmap(bcm.pwmMem8),
@@ -158,7 +158,7 @@ func (bcm *bcm283x) Close() error {
 
 // handleFanEdge handles an edge event on the fan tach input for the standard fan unite.
 // Exponential moving average is used to smooth out the fan speed.
-func (bcm *bcm283x) handleFanEdge(evt gpiod.LineEvent) {
+func (bcm *bcm2711) handleFanEdge(evt gpiod.LineEvent) {
 	// Ensure we're always storing the last event
 	defer func() {
 		bcm.lastFanEdgeEvent = &evt
@@ -179,7 +179,7 @@ func (bcm *bcm283x) handleFanEdge(evt gpiod.LineEvent) {
 	fanSpeed.Set(bcm.fanRpm)
 }
 
-func (bcm *bcm283x) handleEdgeButtonEdge(evt gpiod.LineEvent) {
+func (bcm *bcm2711) handleEdgeButtonEdge(evt gpiod.LineEvent) {
 	// Despite the debounce, we still get multiple events for a single button press
 	// -> This is an in-software debounce to ensure we only get one event per button press
 	select {
@@ -187,7 +187,7 @@ func (bcm *bcm283x) handleEdgeButtonEdge(evt gpiod.LineEvent) {
 		go func() {
 			// Manually debounce the button
 			<-bcm.edgeButtonDebounceChan
-			time.Sleep(bcm283xDebounceInterval)
+			time.Sleep(bcm2711DebounceInterval)
 			edgeButtonEventCount.Inc()
 			close(bcm.edgeButtonWatchChan)
 			bcm.edgeButtonWatchChan = make(chan struct{})
@@ -199,7 +199,7 @@ func (bcm *bcm283x) handleEdgeButtonEdge(evt gpiod.LineEvent) {
 }
 
 // WaitForEdgeButtonPress blocks until the edge button has been pressed
-func (bcm *bcm283x) WaitForEdgeButtonPress(ctx context.Context) error {
+func (bcm *bcm2711) WaitForEdgeButtonPress(ctx context.Context) error {
 	// Either wait for the context to be cancelled or the edge button to be pressed
 	select {
 	case <-ctx.Done():
@@ -210,7 +210,7 @@ func (bcm *bcm283x) WaitForEdgeButtonPress(ctx context.Context) error {
 }
 
 // Init initialises GPIOs and sets sane defaults
-func (bcm *bcm283x) setup() error {
+func (bcm *bcm2711) setup() error {
 	var err error = nil
 
 	// Register edge event handler for edge button
@@ -237,8 +237,8 @@ func (bcm *bcm283x) setup() error {
 	if bcm.opts.FanUnit == FanUnitStandard {
 		fanUnit.WithLabelValues("standard").Set(1)
 		// FAN PWM output for standard fan unit (GPIO 12)
-		// -> bcm283xRegGpfsel1 8:6, alt0
-		bcm.gpioMem[bcm283xRegGpfsel1] = (bcm.gpioMem[bcm283xRegGpfsel1] &^ (0b111 << 6)) | (0b100 << 6)
+		// -> bcm2711RegGpfsel1 8:6, alt0
+		bcm.gpioMem[bcm2711RegGpfsel1] = (bcm.gpioMem[bcm2711RegGpfsel1] &^ (0b111 << 6)) | (0b100 << 6)
 		// Register edge event handler for fan tach input
 		bcm.fanEdgeLine, err = bcm.gpioChip0.RequestLine(
 			rpi.GPIO13,
@@ -254,11 +254,11 @@ func (bcm *bcm283x) setup() error {
 	return err
 }
 
-func (bcm283x *bcm283x) GetFanRPM() (float64, error) {
-	return bcm283x.fanRpm, nil
+func (bcm2711 *bcm2711) GetFanRPM() (float64, error) {
+	return bcm2711.fanRpm, nil
 }
 
-func (bcm *bcm283x) GetPowerStatus() (PowerStatus, error) {
+func (bcm *bcm2711) GetPowerStatus() (PowerStatus, error) {
 	// GPIO 23 is used for PoE detection
 	val, err := bcm.poeLine.Value()
 	if err != nil {
@@ -275,7 +275,7 @@ func (bcm *bcm283x) GetPowerStatus() (PowerStatus, error) {
 	return PowerPoeOrUsbC, nil
 }
 
-func (bcm *bcm283x) setPwm0Freq(targetFrequency uint64) error {
+func (bcm *bcm2711) setPwm0Freq(targetFrequency uint64) error {
 	// Calculate PWM divisor based on target frequency
 	divisor := 54000000 / targetFrequency
 	realDivisor := divisor & 0xfff // 12 bits
@@ -284,44 +284,44 @@ func (bcm *bcm283x) setPwm0Freq(targetFrequency uint64) error {
 	}
 
 	// Stop pwm for both channels; this is required to set the new configuration
-	bcm.pwmMem[bcm283xRegPwmCtl] &^= (1 << bcm283xRegPwmCtlBitPwen1) | (1 << bcm283xRegPwmCtlBitPwen2)
+	bcm.pwmMem[bcm2711RegPwmCtl] &^= (1 << bcm2711RegPwmCtlBitPwen1) | (1 << bcm2711RegPwmCtlBitPwen2)
 	time.Sleep(time.Microsecond * 10)
 
 	// Stop clock w/o any changes, they cannot be made in the same step
-	bcm.clkMem[bcm283xRegPwmclkCntrl] = bcm283xClkManagerPwd | (bcm.clkMem[bcm283xRegPwmclkCntrl] &^ (1 << 4))
+	bcm.clkMem[bcm2711RegPwmclkCntrl] = bcm2711ClkManagerPwd | (bcm.clkMem[bcm2711RegPwmclkCntrl] &^ (1 << 4))
 	time.Sleep(time.Microsecond * 10)
 
 	// Wait for the clock to not be busy so we can perform the changes
-	for bcm.clkMem[bcm283xRegPwmclkCntrl]&(1<<7) != 0 {
+	for bcm.clkMem[bcm2711RegPwmclkCntrl]&(1<<7) != 0 {
 		time.Sleep(time.Microsecond * 10)
 	}
 
 	// passwd, disabled, source (oscillator)
-	bcm.clkMem[bcm283xRegPwmclkCntrl] = bcm283xClkManagerPwd | (0 << bcm283xRegPwmclkCntrlBitEnable) | (1 << bcm283xRegPwmclkCntrlBitSrcOsc)
+	bcm.clkMem[bcm2711RegPwmclkCntrl] = bcm2711ClkManagerPwd | (0 << bcm2711RegPwmclkCntrlBitEnable) | (1 << bcm2711RegPwmclkCntrlBitSrcOsc)
 	time.Sleep(time.Microsecond * 10)
 
-	bcm.clkMem[bcm283xRegPwmclkDiv] = bcm283xClkManagerPwd | (uint32(divisor) << 12)
+	bcm.clkMem[bcm2711RegPwmclkDiv] = bcm2711ClkManagerPwd | (uint32(divisor) << 12)
 	time.Sleep(time.Microsecond * 10)
 
 	// Start clock (passwd, enable, source)
-	bcm.clkMem[bcm283xRegPwmclkCntrl] = bcm283xClkManagerPwd | (1 << bcm283xRegPwmclkCntrlBitEnable) | (1 << bcm283xRegPwmclkCntrlBitSrcOsc)
+	bcm.clkMem[bcm2711RegPwmclkCntrl] = bcm2711ClkManagerPwd | (1 << bcm2711RegPwmclkCntrlBitEnable) | (1 << bcm2711RegPwmclkCntrlBitSrcOsc)
 	time.Sleep(time.Microsecond * 10)
 
 	// Start pwm for both channels again
-	bcm.pwmMem[bcm283xRegPwmCtl] &= (1 << bcm283xRegPwmCtlBitPwen1)
+	bcm.pwmMem[bcm2711RegPwmCtl] &= (1 << bcm2711RegPwmCtlBitPwen1)
 	time.Sleep(time.Microsecond * 10)
 
 	return nil
 }
 
 // SetFanSpeed sets the fanspeed of a blade in percent (standard fan unit)
-func (bcm *bcm283x) SetFanSpeed(speed uint8) error {
+func (bcm *bcm2711) SetFanSpeed(speed uint8) error {
 	fanSpeedTargetPercent.Set(float64(speed))
 	bcm.setFanSpeedPWM(speed)
 	return nil
 }
 
-func (bcm *bcm283x) setFanSpeedPWM(speed uint8) {
+func (bcm *bcm2711) setFanSpeedPWM(speed uint8) {
 	// Noctua fans are expecting a 25khz signal, where duty cycle controls fan on/speed/off
 	// With the usage of the FIFO, we can alter the duty cycle by the number of bits set in the FIFO, maximum of 32.
 	// We therefore need a frequency of 32*25khz = 800khz, which is a divisor of 67.5 (thus we'll use 68).
@@ -345,17 +345,17 @@ func (bcm *bcm283x) setFanSpeedPWM(speed uint8) {
 	}
 
 	// Use fifo, repeat, ...
-	bcm.pwmMem[bcm283xRegPwmCtl] = (1 << bcm283xRegPwmCtlBitPwen1) | (1 << bcm283xRegPwmCtlBitMode1) | (1 << bcm283xRegPwmCtlBitRptl1) | (1 << bcm283xRegPwmCtlBitUsef1)
+	bcm.pwmMem[bcm2711RegPwmCtl] = (1 << bcm2711RegPwmCtlBitPwen1) | (1 << bcm2711RegPwmCtlBitMode1) | (1 << bcm2711RegPwmCtlBitRptl1) | (1 << bcm2711RegPwmCtlBitUsef1)
 	time.Sleep(10 * time.Microsecond)
-	bcm.pwmMem[bcm283xRegPwmRng1] = 32
+	bcm.pwmMem[bcm2711RegPwmRng1] = 32
 	time.Sleep(10 * time.Microsecond)
-	bcm.pwmMem[bcm283xRegPwmFif1] = targetvalue
+	bcm.pwmMem[bcm2711RegPwmFif1] = targetvalue
 
 	// Store fan speed for later use
 	bcm.currFanSpeed = speed
 }
 
-func (bcm *bcm283x) SetStealthMode(enable bool) error {
+func (bcm *bcm2711) SetStealthMode(enable bool) error {
 	if enable {
 		stealthModeEnabled.Set(1)
 		return bcm.stealthModeLine.SetValue(1)
@@ -381,7 +381,7 @@ func serializePwmDataFrame(data uint8) uint32 {
 	return result
 }
 
-func (bcm *bcm283x) SetLed(idx uint, color LedColor) error {
+func (bcm *bcm2711) SetLed(idx uint, color LedColor) error {
 	if idx >= 2 {
 		return fmt.Errorf("invalid led index %d, supported: [0, 1]", idx)
 	}
@@ -392,7 +392,7 @@ func (bcm *bcm283x) SetLed(idx uint, color LedColor) error {
 }
 
 // updateLEDs sets the color of the WS281x LEDs
-func (bcm *bcm283x) updateLEDs() error {
+func (bcm *bcm2711) updateLEDs() error {
 	bcm.wrMutex.Lock()
 	defer bcm.wrMutex.Unlock()
 
@@ -404,42 +404,42 @@ func (bcm *bcm283x) updateLEDs() error {
 	time.Sleep(10 * time.Microsecond)
 
 	// WS281x Output (GPIO 18)
-	// -> bcm283xRegGpfsel1 24:26, regular output; it's configured as alt5 whenever pixel data is sent.
+	// -> bcm2711RegGpfsel1 24:26, regular output; it's configured as alt5 whenever pixel data is sent.
 	// This is not optimal but required as the pwm0 peripheral is shared between fan and data line for the LEDs.
 	time.Sleep(10 * time.Microsecond)
-	bcm.gpioMem[bcm283xRegGpfsel1] = (bcm.gpioMem[bcm283xRegGpfsel1] &^ (0b111 << 24)) | (0b010 << 24)
+	bcm.gpioMem[bcm2711RegGpfsel1] = (bcm.gpioMem[bcm2711RegGpfsel1] &^ (0b111 << 24)) | (0b010 << 24)
 	time.Sleep(10 * time.Microsecond)
 	defer func() {
 		// Set to regular output again so the PWM signal doesn't confuse the WS2812
-		bcm.gpioMem[bcm283xRegGpfsel1] = (bcm.gpioMem[bcm283xRegGpfsel1] &^ (0b111 << 24)) | (0b001 << 24)
+		bcm.gpioMem[bcm2711RegGpfsel1] = (bcm.gpioMem[bcm2711RegGpfsel1] &^ (0b111 << 24)) | (0b001 << 24)
 		bcm.setFanSpeedPWM(bcm.currFanSpeed)
 	}()
 
-	bcm.pwmMem[bcm283xRegPwmCtl] = (1 << bcm283xRegPwmCtlBitMode1) | (1 << bcm283xRegPwmCtlBitRptl1) | (0 << bcm283xRegPwmCtlBitSbit1) | (1 << bcm283xRegPwmCtlBitUsef1) | (1 << bcm283xRegPwmCtlBitClrf1)
+	bcm.pwmMem[bcm2711RegPwmCtl] = (1 << bcm2711RegPwmCtlBitMode1) | (1 << bcm2711RegPwmCtlBitRptl1) | (0 << bcm2711RegPwmCtlBitSbit1) | (1 << bcm2711RegPwmCtlBitUsef1) | (1 << bcm2711RegPwmCtlBitClrf1)
 	time.Sleep(10 * time.Microsecond)
-	// bcm.pwmMem[bcm283xRegPwmRng1] = 32
-	bcm.pwmMem[bcm283xRegPwmRng1] = 24 // we only need 24 bits per LED
+	// bcm.pwmMem[bcm2711RegPwmRng1] = 32
+	bcm.pwmMem[bcm2711RegPwmRng1] = 24 // we only need 24 bits per LED
 	time.Sleep(10 * time.Microsecond)
 
 	// Add sufficient padding to clear 50us of silence with ~412.5ns per bit -> at least 121 bits -> let's be safe and send 6*24=144 bits of silence
-	bcm.pwmMem[bcm283xRegPwmFif1] = 0
-	bcm.pwmMem[bcm283xRegPwmFif1] = 0
-	bcm.pwmMem[bcm283xRegPwmFif1] = 0
-	bcm.pwmMem[bcm283xRegPwmFif1] = 0
-	bcm.pwmMem[bcm283xRegPwmFif1] = 0
-	bcm.pwmMem[bcm283xRegPwmFif1] = 0
+	bcm.pwmMem[bcm2711RegPwmFif1] = 0
+	bcm.pwmMem[bcm2711RegPwmFif1] = 0
+	bcm.pwmMem[bcm2711RegPwmFif1] = 0
+	bcm.pwmMem[bcm2711RegPwmFif1] = 0
+	bcm.pwmMem[bcm2711RegPwmFif1] = 0
+	bcm.pwmMem[bcm2711RegPwmFif1] = 0
 	// Write top LED data
-	bcm.pwmMem[bcm283xRegPwmFif1] = serializePwmDataFrame(bcm.leds[0].Red) << 8
-	bcm.pwmMem[bcm283xRegPwmFif1] = serializePwmDataFrame(bcm.leds[0].Green) << 8
-	bcm.pwmMem[bcm283xRegPwmFif1] = serializePwmDataFrame(bcm.leds[0].Blue) << 8
+	bcm.pwmMem[bcm2711RegPwmFif1] = serializePwmDataFrame(bcm.leds[0].Red) << 8
+	bcm.pwmMem[bcm2711RegPwmFif1] = serializePwmDataFrame(bcm.leds[0].Green) << 8
+	bcm.pwmMem[bcm2711RegPwmFif1] = serializePwmDataFrame(bcm.leds[0].Blue) << 8
 	// Write edge LED data
-	bcm.pwmMem[bcm283xRegPwmFif1] = serializePwmDataFrame(bcm.leds[1].Red) << 8
-	bcm.pwmMem[bcm283xRegPwmFif1] = serializePwmDataFrame(bcm.leds[1].Green) << 8
-	bcm.pwmMem[bcm283xRegPwmFif1] = serializePwmDataFrame(bcm.leds[1].Blue) << 8
+	bcm.pwmMem[bcm2711RegPwmFif1] = serializePwmDataFrame(bcm.leds[1].Red) << 8
+	bcm.pwmMem[bcm2711RegPwmFif1] = serializePwmDataFrame(bcm.leds[1].Green) << 8
+	bcm.pwmMem[bcm2711RegPwmFif1] = serializePwmDataFrame(bcm.leds[1].Blue) << 8
 	// make sure there's >50us of silence
-	bcm.pwmMem[bcm283xRegPwmFif1] = 0 // auto-repeated, so no need to feed the FIFO further.
+	bcm.pwmMem[bcm2711RegPwmFif1] = 0 // auto-repeated, so no need to feed the FIFO further.
 
-	bcm.pwmMem[bcm283xRegPwmCtl] = (1 << bcm283xRegPwmCtlBitPwen1) | (1 << bcm283xRegPwmCtlBitMode1) | (1 << bcm283xRegPwmCtlBitRptl1) | (0 << bcm283xRegPwmCtlBitSbit1) | (1 << bcm283xRegPwmCtlBitUsef1)
+	bcm.pwmMem[bcm2711RegPwmCtl] = (1 << bcm2711RegPwmCtlBitPwen1) | (1 << bcm2711RegPwmCtlBitMode1) | (1 << bcm2711RegPwmCtlBitRptl1) | (0 << bcm2711RegPwmCtlBitSbit1) | (1 << bcm2711RegPwmCtlBitUsef1)
 	// sleep for 4*50us to ensure the data is sent. This is probably a bit too gracious but does not have a significant impact, so let's be safe data gets out.
 	time.Sleep(200 * time.Microsecond)
 
@@ -447,10 +447,10 @@ func (bcm *bcm283x) updateLEDs() error {
 }
 
 // GetTemperature returns the current temperature of the SoC
-func (bcm *bcm283x) GetTemperature() (float64, error) {
+func (bcm *bcm2711) GetTemperature() (float64, error) {
 	// Read temperature
 
-	f, err := os.Open(bcm283xThermalZonePath)
+	f, err := os.Open(bcm2711ThermalZonePath)
 	if err != nil {
 		return -1, err
 	}
