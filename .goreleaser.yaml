@@ -28,9 +28,9 @@ dockers:
     - agent
     - bladectl
     image_templates:
-      - ghcr.io/uptime-lab/computeblade-agent:latest
-      - ghcr.io/uptime-lab/computeblade-agent:{{ .Tag }}
-      - ghcr.io/uptime-lab/computeblade-agent:v{{ .Major }}
+      - ghcr.io/uptime-lab/computeblade-agent/agent:latest
+      - ghcr.io/uptime-lab/computeblade-agent/agent:{{ .Tag }}
+      - ghcr.io/uptime-lab/computeblade-agent/agent:v{{ .Major }}
     build_flag_templates:
       - "--label=org.opencontainers.image.created={{.Date}}"
       - "--label=org.opencontainers.image.title={{.ProjectName}}"
@@ -49,7 +49,7 @@ nfpms:
 - id: computeblade-agent
   maintainer: Matthias Riegler <me@xvzf.tech>
   description: Computeblade Agent
-  homepage: https://github.com/xvzf/computeblade-agent
+  homepage: https://github.com/uptime-lab/computeblade-agent
   license: Apache 2.0
   formats:
   - deb
