@@ -25,10 +25,12 @@ jobs:
     needs:
     - release-please
     if: needs.release-please.outputs.release_created
+    env:
+      RELEASE_CREATED: ${{ needs.release-please.outputs.release_created }}
     steps:
       - name: debug
         run:
-          echo "${{ needs.release-please.outputs.release_created }}"
+          echo $RELEASE_CREATED
           exit 1
 
       # Checkout code (full history)
