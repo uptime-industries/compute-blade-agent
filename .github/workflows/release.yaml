@@ -26,6 +26,11 @@ jobs:
     - release-please
     if: needs.release-please.outputs.release_created
     steps:
+      - name: debug
+        run:
+          echo "${{ needs.release-please.outputs.release_created }}"
+          exit 1
+
       # Checkout code (full history)
       - name: Checkout
         uses: actions/checkout@v4
