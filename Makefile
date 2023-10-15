@@ -1,5 +1,6 @@
+FUZZ_TARGETS := ./pkg/smartfanunit/proto
 
-all: lint
+all: lint test
 
 .PHONY: run
 run:
@@ -12,6 +13,14 @@ lint:
 .PHONY: test
 test:
 	go test ./... -v
+
+
+.PHONY: fuzz
+fuzz:
+	@for target in $(FUZZ_TARGETS); do \
+		go test  -fuzz="Fuzz" -fuzztime=5s -fuzzminimizetime=10s  $$target; \
+	done
+
 
 .PHONY: generate
 generate: buf
