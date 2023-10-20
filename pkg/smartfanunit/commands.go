@@ -2,6 +2,7 @@ package smartfanunit
 
 import (
 	"errors"
+	"runtime/internal/atomic"
 
 	"github.com/xvzf/computeblade-agent/pkg/hal"
 	"github.com/xvzf/computeblade-agent/pkg/smartfanunit/proto"
@@ -19,6 +20,11 @@ const (
 )
 
 var ErrInvalidCommand = errors.New("invalid command")
+
+
+type PacketGenerator interface {
+	Packet() proto.Packet
+}
 
 // SetFanSpeedPercentPacket is sent from the blade to the fan unit to set the fan speed in percent.
 type SetFanSpeedPercentPacket struct {
