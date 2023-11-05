@@ -2,9 +2,8 @@ package smartfanunit
 
 import (
 	"errors"
-	"runtime/internal/atomic"
 
-	"github.com/xvzf/computeblade-agent/pkg/hal"
+	"github.com/xvzf/computeblade-agent/pkg/hal/led"
 	"github.com/xvzf/computeblade-agent/pkg/smartfanunit/proto"
 )
 
@@ -20,7 +19,6 @@ const (
 )
 
 var ErrInvalidCommand = errors.New("invalid command")
-
 
 type PacketGenerator interface {
 	Packet() proto.Packet
@@ -48,7 +46,7 @@ func (p *SetFanSpeedPercentPacket) FromPacket(packet proto.Packet) error {
 
 // SetLEDPacket is sent from the blade to the fan unit to set the LED color.
 type SetLEDPacket struct {
-	Color hal.LedColor
+	Color led.Color
 }
 
 func (p *SetLEDPacket) Packet() proto.Packet {
@@ -62,7 +60,7 @@ func (p *SetLEDPacket) FromPacket(packet proto.Packet) error {
 	if packet.Command != CmdSetLED {
 		return ErrInvalidCommand
 	}
-	p.Color = hal.LedColor{
+	p.Color = led.Color{
 		Blue:  packet.Data[0],
 		Green: packet.Data[1],
 		Red:   packet.Data[2],
@@ -95,7 +93,7 @@ type AirFlowTemperaturePacket struct {
 func (p *AirFlowTemperaturePacket) Packet() proto.Packet {
 	return proto.Packet{
 		Command: NotifyAirFlowTemperature,
-		Data: proto.Data(float32To24Bit(p.Temperature)),
+		Data:    proto.Data(float32To24Bit(p.Temperature)),
 	}
 }
 
@@ -107,15 +105,15 @@ func (p *AirFlowTemperaturePacket) FromPacket(packet proto.Packet) error {
 	return nil
 }
 
-
 // FanSpeedRPMPacket is sent from the fan unit to the blade to report the current fan speed in RPM.
 type FanSpeedRPMPacket struct {
 	RPM float32
 }
+
 func (p *FanSpeedRPMPacket) Packet() proto.Packet {
 	return proto.Packet{
 		Command: NotifyFanSpeedRPM,
-		Data: float32To24Bit(p.RPM),
+		Data:    float32To24Bit(p.RPM),
 	}
 }
 func (p *FanSpeedRPMPacket) FromPacket(packet proto.Packet) error {
@@ -125,4 +123,3 @@ func (p *FanSpeedRPMPacket) FromPacket(packet proto.Packet) error {
 	p.RPM = float32From24Bit(packet.Data)
 	return nil
 }
-

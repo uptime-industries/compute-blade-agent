@@ -1,3 +1,4 @@
+//go:build !tinygo
 package smartfanunit
 
 import (

@@ -8,8 +8,7 @@ import (
 // This is, by no means, a performant or complete implementation but for the scope of this project more than sufficient
 type EventBus interface {
 	Publish(topic string, message any)
-	Subscribe(topic string, filter func(any) bool) Subscriber
-	Unsubscribe(topic string, ch chan any)
+	Subscribe(topic string, bufSize int, filter func(any) bool) Subscriber
 }
 
 type Subscriber interface {
@@ -23,8 +22,8 @@ type eventBus struct {
 }
 
 type subscriber struct {
-	mu sync.Mutex
-	ch  chan any
+	mu     sync.Mutex
+	ch     chan any
 	closed bool
 }
 
@@ -33,7 +32,7 @@ func MatchAll(any) bool {
 }
 
 // New returns an initialized EventBus.
-func New() *eventBus {
+func New() EventBus {
 	return &eventBus{
 		subscribers: make(map[string]map[*subscriber]func(any) bool),
 	}
@@ -78,7 +77,7 @@ func (eb *eventBus) Subscribe(topic string, bufSize int, filter func(any) bool) 
 	ch := make(chan any, bufSize)
 
 	sub := &subscriber{
-		ch: ch,
+		ch:     ch,
 		closed: false,
 	}
 

@@ -30,7 +30,7 @@ release:
 	goreleaser release --clean
 
 snapshot:
-	goreleaser release --snapshot --skip-publish --clean
+	goreleaser release --snapshot --skip=publish --clean
 
 # Dependencies
 LOCALBIN ?= $(shell pwd)/bin

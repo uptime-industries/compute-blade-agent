@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/stretchr/testify/mock"
+	"github.com/xvzf/computeblade-agent/pkg/hal/led"
 )
 
 // fails if ComputeBladeHalMock does not implement ComputeBladeHal
@@ -12,6 +13,11 @@ var _ ComputeBladeHal = &ComputeBladeHalMock{}
 // ComputeBladeMock implements a mock for the ComputeBladeHal interface
 type ComputeBladeHalMock struct {
 	mock.Mock
+}
+
+func (m *ComputeBladeHalMock) Run(ctx context.Context) error {
+	args := m.Called(ctx)
+	return args.Error(0)
 }
 
 func (m *ComputeBladeHalMock) Close() error {
@@ -44,7 +50,7 @@ func (m *ComputeBladeHalMock) WaitForEdgeButtonPress(ctx context.Context) error 
 	return args.Error(0)
 }
 
-func (m *ComputeBladeHalMock) SetLed(idx uint, color LedColor) error {
+func (m *ComputeBladeHalMock) SetLed(idx uint, color led.Color) error {
 	args := m.Called(idx, color)
 	return args.Error(0)
 }

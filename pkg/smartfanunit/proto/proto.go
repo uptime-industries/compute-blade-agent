@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"io"
+	"time"
+
+	"tinygo.org/x/drivers"
 )
 
 // Simple P2P protocol for communicating over a serial port.
@@ -80,6 +83,8 @@ func ReadPacket(ctx context.Context, r io.Reader) (Packet, error) {
 	started := false
 	escaped := false
 
+	uart, isUart := r.(drivers.UART)
+
 	for {
 
 		// Check if context is done before reading
@@ -87,6 +92,12 @@ func ReadPacket(ctx context.Context, r io.Reader) (Packet, error) {
 		case <-ctx.Done():
 			return Packet{}, ctx.Err()
 		default:
+		}
+
+		if isUart && uart.Buffered() == 0 {
+			// Allows TinyGo to switch to other goroutines
+			time.Sleep(time.Millisecond)
+			continue
 		}
 
 		b := make([]uint8, 1)

@@ -6,6 +6,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/xvzf/computeblade-agent/pkg/hal/led"
 	"go.uber.org/zap"
 )
 
@@ -71,7 +72,7 @@ func (m *SimulatedHal) WaitForEdgeButtonPress(ctx context.Context) error {
 	}
 }
 
-func (m *SimulatedHal) SetLed(idx uint, color LedColor) error {
+func (m *SimulatedHal) SetLed(idx uint, color led.Color) error {
 	ledColorChangeEventCount.Inc()
 	m.logger.Info("SetLed", zap.Uint("idx", idx), zap.Any("color", color))
 	return nil

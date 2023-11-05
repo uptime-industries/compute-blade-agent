@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/xvzf/computeblade-agent/pkg/hal"
+	"github.com/xvzf/computeblade-agent/pkg/hal/led"
 	"github.com/xvzf/computeblade-agent/pkg/util"
 )
 
@@ -28,9 +29,9 @@ type ledEngineImpl struct {
 
 type BlinkPattern struct {
 	// BaseColor is the color is the color shown when the pattern starts (-> before the first blink)
-	BaseColor hal.LedColor
+	BaseColor led.Color
 	// ActiveColor is the color shown when the pattern is active (-> during the blink)
-	ActiveColor hal.LedColor
+	ActiveColor led.Color
 	// Delays is a list of delays between changes -> (base) -> 0.5s(active) -> 1s(base) -> 0.5s (active) -> 1s (base)
 	Delays []time.Duration
 }
@@ -39,24 +40,24 @@ func mapBrighnessUint8(brightness float64) uint8 {
 	return uint8(255.0 * brightness)
 }
 
-func LedColorPurple(brightness float64) hal.LedColor {
-	return hal.LedColor{
+func LedColorPurple(brightness float64) led.Color {
+	return led.Color{
 		Red:   mapBrighnessUint8(brightness),
 		Green: 0,
 		Blue:  mapBrighnessUint8(brightness),
 	}
 }
 
-func LedColorRed(brightness float64) hal.LedColor {
-	return hal.LedColor{
+func LedColorRed(brightness float64) led.Color {
+	return led.Color{
 		Red:   mapBrighnessUint8(brightness),
 		Green: 0,
 		Blue:  0,
 	}
 }
 
-func LedColorGreen(brightness float64) hal.LedColor {
-	return hal.LedColor{
+func LedColorGreen(brightness float64) led.Color {
+	return led.Color{
 		Red:   0,
 		Green: mapBrighnessUint8(brightness),
 		Blue:  0,
@@ -64,7 +65,7 @@ func LedColorGreen(brightness float64) hal.LedColor {
 }
 
 // NewStaticPattern creates a new static pattern (no color changes)
-func NewStaticPattern(color hal.LedColor) BlinkPattern {
+func NewStaticPattern(color led.Color) BlinkPattern {
 	return BlinkPattern{
 		BaseColor:   color,
 		ActiveColor: color,
@@ -73,23 +74,23 @@ func NewStaticPattern(color hal.LedColor) BlinkPattern {
 }
 
 // NewBurstPattern creates a new burst pattern (~1s cycle duration with 3x 50ms bursts)
-func NewBurstPattern(baseColor hal.LedColor, burstColor hal.LedColor) BlinkPattern {
+func NewBurstPattern(baseColor led.Color, burstColor led.Color) BlinkPattern {
 	return BlinkPattern{
 		BaseColor:   baseColor,
 		ActiveColor: burstColor,
 		Delays: []time.Duration{
-			750 * time.Millisecond, // 750ms off
-			50 * time.Millisecond,  // 50ms on
-			50 * time.Millisecond,  // 50ms off
-			50 * time.Millisecond,  // 50ms on
-			50 * time.Millisecond,  // 50ms off
-			50 * time.Millisecond,  // 50ms on
+			500 * time.Millisecond,  // 750ms off
+			100 * time.Millisecond,  // 100ms on
+			100 * time.Millisecond,  // 100ms off
+			100 * time.Millisecond,  // 100ms on
+			100 * time.Millisecond,  // 100ms off
+			100 * time.Millisecond,  // 100ms on
 		},
 	}
 }
 
 // NewSlowBlinkPattern creates a new slow blink pattern (~2s cycle duration with 1s off and 1s on)
-func NewSlowBlinkPattern(baseColor hal.LedColor, activeColor hal.LedColor) BlinkPattern {
+func NewSlowBlinkPattern(baseColor led.Color, activeColor led.Color) BlinkPattern {
 	return BlinkPattern{
 		BaseColor:   baseColor,
 		ActiveColor: activeColor,
@@ -119,7 +120,7 @@ func NewLedEngine(opts LedEngineOpts) *ledEngineImpl {
 		ledIdx:  opts.LedIdx,
 		hal:     opts.Hal,
 		restart: make(chan struct{}),              // restart channel controls cancelation of any pattern
-		pattern: NewStaticPattern(hal.LedColor{}), // Turn off LEDs by default
+		pattern: NewStaticPattern(led.Color{}), // Turn off LEDs by default
 		clock:   clock,
 	}
 }

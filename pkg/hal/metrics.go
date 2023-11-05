@@ -22,6 +22,11 @@ var (
 		Name:      "soc_temperature",
 		Help:      "SoC temperature in °C",
 	})
+	airFlowTemperature = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: "computeblade",
+		Name:      "airflow_temperature",
+		Help:      "airflow temperature in °C",
+	})
 	computeModule = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: "computeblade",
 		Name:      "compute_modul_present",
