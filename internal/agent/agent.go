@@ -81,6 +81,8 @@ type ComputeBladeAgentConfig struct {
 	FanSpeed *fancontroller.FanOverrideOpts `mapstructure:"fan_speed"`
 	// FanControllerConfig is the configuration of the fan controller
 	FanControllerConfig fancontroller.FanControllerConfig `mapstructure:"fan_controller"`
+
+	ComputeBladeHalOpts hal.ComputeBladeHalOpts `mapstructure:"hal"`
 }
 
 // ComputeBladeAgent implements the core-logic of the agent. It is responsible for handling events and interfacing with the hardware.
@@ -115,9 +117,7 @@ func NewComputeBladeAgent(ctx context.Context, opts ComputeBladeAgentConfig) (Co
 	var err error
 
 	// blade, err := hal.NewCm4Hal(hal.ComputeBladeHalOpts{
-	blade, err := hal.NewCm4Hal(ctx, hal.ComputeBladeHalOpts{
-		StandardFanUnitNoRPM: true, // FIXME: make configurable
-	})
+	blade, err := hal.NewCm4Hal(ctx, opts.ComputeBladeHalOpts)
 	if err != nil {
 		return nil, err
 	}

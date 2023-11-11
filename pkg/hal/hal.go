@@ -38,7 +38,7 @@ const (
 )
 
 type ComputeBladeHalOpts struct {
-	StandardFanUnitNoRPM bool
+	RpmReportingStandardFanUnit bool `mapstructure:"rpm_reporting_standard_fan_unit"`
 }
 
 // ComputeBladeHal abstracts hardware details of the Compute Blade and provides a simple interface

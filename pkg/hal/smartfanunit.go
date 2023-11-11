@@ -14,6 +14,7 @@ import (
 	"github.com/xvzf/computeblade-agent/pkg/smartfanunit"
 	"github.com/xvzf/computeblade-agent/pkg/smartfanunit/proto"
 	"go.bug.st/serial"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -99,11 +100,16 @@ func (fuc *smartFanUnit) Run(parentCtx context.Context) error {
 
 	// Start read loop
 	wg.Go(func() error {
-		errCounter := 0
 		for {
+			select {
+			case <-ctx.Done():
+				return nil
+			default:
+			}
+
 			pkt, err := proto.ReadPacket(ctx, fuc.rwc)
 			if err != nil {
-				errCounter++
+				log.FromContext(ctx).Error("Failed to read packet from serial port", zap.Error(err))
 				continue
 			}
 			fuc.eb.Publish(inboundTopic, pkt)
@@ -117,7 +123,7 @@ func (fuc *smartFanUnit) Run(parentCtx context.Context) error {
 		for {
 			select {
 			case <-ctx.Done():
-				return ctx.Err()
+				return nil
 			case pktAny := <-sub.C():
 				rawPkt := pktAny.(proto.Packet)
 				if err := fuc.speed.FromPacket(rawPkt); err != nil && err != proto.ErrChecksumMismatch {
@@ -135,7 +141,7 @@ func (fuc *smartFanUnit) Run(parentCtx context.Context) error {
 		for {
 			select {
 			case <-ctx.Done():
-				return ctx.Err()
+				return nil
 			case pktAny := <-sub.C():
 				rawPkt := pktAny.(proto.Packet)
 				if err := fuc.airflow.FromPacket(rawPkt); err != nil && err != proto.ErrChecksumMismatch {
@@ -174,7 +180,6 @@ func (fuc *smartFanUnit) FanSpeedRPM(_ context.Context) (float64, error) {
 func (fuc *smartFanUnit) WaitForButtonPress(ctx context.Context) error {
 	sub := fuc.eb.Subscribe(inboundTopic, 1, smartfanunit.MatchCmd(smartfanunit.NotifyButtonPress))
 	defer sub.Unsubscribe()
-
 
 	select {
 	case <-ctx.Done():
