@@ -45,18 +45,6 @@ func clientFromContext(ctx context.Context) bladeapiv1alpha1.BladeAgentServiceCl
 	return client
 }
 
-func grpcConnIntoContext(ctx context.Context, grpcConn *grpc.ClientConn) context.Context {
-	return context.WithValue(ctx, defaultGrpcClientConnContextKey, grpcConn)
-}
-
-func grpcConnFromContext(ctx context.Context) *grpc.ClientConn {
-	grpcConn, ok := ctx.Value(defaultGrpcClientContextKey).(*grpc.ClientConn)
-	if !ok {
-		panic("grpc client connection not found in context")
-	}
-	return grpcConn
-}
-
 var rootCmd = &cobra.Command{
 	Use:   "bladectl",
 	Short: "bladectl interacts with the computeblade-agent and allows you to manage hardware-features of your compute blade(s)",
@@ -85,9 +73,7 @@ var rootCmd = &cobra.Command{
 		}
 		client := bladeapiv1alpha1.NewBladeAgentServiceClient(conn)
 
-		cmd.SetContext(
-			grpcConnIntoContext(clientIntoContext(ctx, client), conn),
-		)
+		cmd.SetContext( clientIntoContext(ctx, client))
 		return nil
 	},
 }

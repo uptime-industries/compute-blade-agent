@@ -25,10 +25,16 @@ func ExampleNewSmartFanUnit() {
 	}()
 
 	// Set LED color for the blade to red
-	client.SetLed(ctx, led.Color{Red: 100, Green: 0, Blue: 0})
+	err = client.SetLed(ctx, led.Color{Red: 100, Green: 0, Blue: 0})
+	if err != nil {
+		panic(err)
+	}
 
 	// Set fanspeed to 20%
-	client.SetFanSpeedPercent(ctx, 20)
+	err = client.SetFanSpeedPercent(ctx, 20)
+	if err != nil {
+		panic(err)
+	}
 
 	tmp, err := client.AirFlowTemperature(ctx)
 	if err != nil {

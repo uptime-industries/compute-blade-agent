@@ -25,6 +25,8 @@ func NewCm4Hal(_ context.Context, _ ComputeBladeHalOpts) (ComputeBladeHal, error
 	computeModule.WithLabelValues("simulated").Set(1)
 	fanUnit.WithLabelValues("simulated").Set(1)
 
+	socTemperature.Set(42)
+
 	return &SimulatedHal{
 		logger: logger,
 	}, nil

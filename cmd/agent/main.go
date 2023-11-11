@@ -56,7 +56,9 @@ func main() {
 	}
 
 	zapLogger := baseLogger.With(zap.String("app", "computeblade-agent"))
-	defer zapLogger.Sync()
+	defer func() {
+		_ = zapLogger.Sync()
+	}()
 	_ = zap.ReplaceGlobals(zapLogger.With(zap.String("scope", "global")))
 	baseCtx := log.IntoContext(context.Background(), zapLogger)
 
