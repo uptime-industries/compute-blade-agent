@@ -96,8 +96,5 @@ func (fu *standardFanUnitBcm2711) AirFlowTemperature(_ context.Context) (float32
 }
 
 func (fu *standardFanUnitBcm2711) Close() error {
-	if !fu.DisableRPMreporting {
-		return fu.fanEdgeLine.Close()
-	}
 	return nil
 }
