@@ -39,7 +39,7 @@ type Controller struct {
 	leftReqFanSpeed  uint8
 	rightReqFanSpeed uint8
 
-	buttonPressed bool
+	buttonPressed int
 }
 
 func (c *Controller) Run(parentCtx context.Context) error {
@@ -55,7 +55,7 @@ func (c *Controller) Run(parentCtx context.Context) error {
 	group := errgroup.Group{}
 
 	// LED Update events
-	println("Starting LED update loop")
+	println("[+] Starting LED update loop")
 	group.Go(func() error {
 		defer cancel()
 		if err := c.updateLEDs(ctx); err != nil {
@@ -65,7 +65,7 @@ func (c *Controller) Run(parentCtx context.Context) error {
 	})
 
 	// Fan speed update events
-	println("Starting fan update loop")
+	println("[+] Starting fan update loop")
 	group.Go(func() error {
 		defer cancel()
 		if err := c.updateFanSpeed(ctx); err != nil {
@@ -75,7 +75,7 @@ func (c *Controller) Run(parentCtx context.Context) error {
 	})
 
 	// Metric reporting events
-	println("Starting metric reporting loop")
+	println("[+] Starting metric reporting loop")
 	group.Go(func() error {
 		defer cancel()
 		if err := c.metricReporter(ctx); err != nil {
@@ -85,66 +85,74 @@ func (c *Controller) Run(parentCtx context.Context) error {
 	})
 
 	// Left blade events
-	println("Starting left blade event listener")
+	println("[+] Starting event listener (left)")
 	group.Go(func() error {
 		defer cancel()
 		return c.listenEvents(ctx, c.LeftUART, leftBladeTopicIn)
 	})
-	println("Starting left blade event dispatcher")
+	println("[+] Starting event dispatcher (left)")
 	group.Go(func() error {
 		defer cancel()
 		return c.dispatchEvents(ctx, c.LeftUART, leftBladeTopicOut)
 	})
 
 	// right blade events
-	println("Starting right blade event listener")
+	println("[+] Starting event listener (righ)")
 	group.Go(func() error {
 		defer cancel()
 		return c.listenEvents(ctx, c.RightUART, rightBladeTopicIn)
 	})
-	println("Starting right blade event dispatcher")
+	println("[+] Starting event dispatcher (right)")
 	group.Go(func() error {
 		defer cancel()
 		return c.dispatchEvents(ctx, c.RightUART, rightBladeTopicOut)
 	})
 
 	// Button Press events
-	println("Starting button press event interrupt handler")
+	println("[+] Starting button interrupt handler")
 	c.ButtonPin.SetInterrupt(machine.PinFalling, func(machine.Pin) {
-		c.buttonPressed = true
+		c.buttonPressed += 1
 	})
 
 	group.Go(func() error {
 		defer cancel()
+		ticker := time.NewTicker(10 * time.Millisecond)
 		for {
 			select {
 			case <-ctx.Done():
 				return nil
-			default:
-			}
-			time.Sleep(10 * time.Millisecond)
-			if c.buttonPressed {
-				println("button pressed")
+			case <-ticker.C:
 				btnPressed := smartfanunit.ButtonPressPacket{}
-				c.eb.Publish(leftBladeTopicOut, btnPressed.Packet())
-				c.eb.Publish(rightBladeTopicOut, btnPressed.Packet())
-				c.buttonPressed = false
+				if c.buttonPressed > 0 {
+					// Allow up to 600ms for a 2nc button press
+					time.Sleep(600 * time.Millisecond)
+				}
+
+				if c.buttonPressed == 1 {
+					println("[ ] Button pressed once")
+					c.eb.Publish(leftBladeTopicOut, btnPressed.Packet())
+				}
+				if c.buttonPressed == 2 {
+					println("[ ] Button pressed twice")
+					c.eb.Publish(rightBladeTopicOut, btnPressed.Packet())
+				}
+				c.buttonPressed = 0
 			}
 		}
 	})
 	return group.Wait()
 }
 
-// listenEvents reads events from the UART interface and writes them to the eventbus
+// listenEvents reads events from the UART interface and dispatches them to the eventbus
 func (c *Controller) listenEvents(ctx context.Context, uart drivers.UART, targetTopic string) error {
 	for {
 		// Read packet from UART; blocks until packet is received
 		pkt, err := proto.ReadPacket(ctx, uart)
 		if err != nil {
-			println(err.Error())
+			println("[!] failed to read packet, continuing..", err.Error())
 			continue
 		}
-		println("received packet from UART, publishing to topic", targetTopic)
+		println("[ ] received packet from UART publishing to topic", targetTopic)
 		c.eb.Publish(targetTopic, pkt)
 	}
 }
@@ -156,7 +164,7 @@ func (c *Controller) dispatchEvents(ctx context.Context, uart drivers.UART, sour
 	for {
 		select {
 		case msg := <-sub.C():
-			println("dispatching event to UART from topic", sourceTopic)
+			println("[ ] dispatching event to UART from topic", sourceTopic)
 			pkt := msg.(proto.Packet)
 			err := proto.WritePacket(ctx, uart, pkt)
 			if err != nil {
@@ -184,15 +192,15 @@ func (c *Controller) metricReporter(ctx context.Context) error {
 
 		airFlowTempLeft.Temperature, err = c.FanController.InternalTemperature()
 		if err != nil {
-			println(err.Error())
+			println("[!] failed to read internal temperature:", err.Error())
 		}
 		airFlowTempRight.Temperature, err = c.FanController.ExternalTemperature()
 		if err != nil {
-			println(err.Error())
+			println("[!] failed to read external temperature:", err.Error())
 		}
 		fanRpm.RPM, err = c.FanController.FanRPM()
 		if err != nil {
-			println(err.Error())
+			println("[!] failed to read fan RPM:", err.Error())
 		}
 
 		// Publish metrics
@@ -258,7 +266,7 @@ func (c *Controller) updateLEDs(ctx context.Context) error {
 			c.leftLed.Blue, c.leftLed.Green, c.leftLed.Red,
 		})
 		if err != nil {
-			println(err.Error())
+			println("[!] failed to update LEDs", err.Error())
 			return err
 		}
 	}
