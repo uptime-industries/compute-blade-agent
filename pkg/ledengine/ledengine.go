@@ -79,12 +79,12 @@ func NewBurstPattern(baseColor led.Color, burstColor led.Color) BlinkPattern {
 		BaseColor:   baseColor,
 		ActiveColor: burstColor,
 		Delays: []time.Duration{
-			500 * time.Millisecond,  // 750ms off
-			100 * time.Millisecond,  // 100ms on
-			100 * time.Millisecond,  // 100ms off
-			100 * time.Millisecond,  // 100ms on
-			100 * time.Millisecond,  // 100ms off
-			100 * time.Millisecond,  // 100ms on
+			500 * time.Millisecond, // 750ms off
+			100 * time.Millisecond, // 100ms on
+			100 * time.Millisecond, // 100ms off
+			100 * time.Millisecond, // 100ms on
+			100 * time.Millisecond, // 100ms off
+			100 * time.Millisecond, // 100ms on
 		},
 	}
 }
@@ -119,7 +119,7 @@ func NewLedEngine(opts LedEngineOpts) *ledEngineImpl {
 	return &ledEngineImpl{
 		ledIdx:  opts.LedIdx,
 		hal:     opts.Hal,
-		restart: make(chan struct{}),              // restart channel controls cancelation of any pattern
+		restart: make(chan struct{}),           // restart channel controls cancelation of any pattern
 		pattern: NewStaticPattern(led.Color{}), // Turn off LEDs by default
 		clock:   clock,
 	}

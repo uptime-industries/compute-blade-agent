@@ -18,7 +18,7 @@ type SimulatedHal struct {
 	logger *zap.Logger
 }
 
-func NewCm4Hal(_ ComputeBladeHalOpts) (ComputeBladeHal, error) {
+func NewCm4Hal(_ context.Context, _ ComputeBladeHalOpts) (ComputeBladeHal, error) {
 	logger := zap.L().Named("hal").Named("simulated-cm4")
 	logger.Warn("Using simulated hal")
 
@@ -28,6 +28,11 @@ func NewCm4Hal(_ ComputeBladeHalOpts) (ComputeBladeHal, error) {
 	return &SimulatedHal{
 		logger: logger,
 	}, nil
+}
+
+func (m *SimulatedHal) Run(ctx context.Context) error {
+	<-ctx.Done()
+	return ctx.Err()
 }
 
 func (m *SimulatedHal) Close() error {

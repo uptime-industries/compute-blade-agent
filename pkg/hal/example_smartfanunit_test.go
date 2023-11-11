@@ -10,10 +10,10 @@ import (
 	"github.com/xvzf/computeblade-agent/pkg/hal/led"
 )
 
-func ExampleNewSmartFanUnitClient() {
+func ExampleNewSmartFanUnit() {
 	ctx := context.Background()
 
-	client, err := hal.NewSmartFanUnitClient("/dev/tty.usbmodem11102")
+	client, err := hal.NewSmartFanUnit("/dev/tty.usbmodem11102")
 	if err != nil {
 		panic(err)
 	}

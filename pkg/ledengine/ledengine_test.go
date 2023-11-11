@@ -75,12 +75,12 @@ func TestNewBurstPattern(t *testing.T) {
 				BaseColor:   led.Color{Green: 255},
 				ActiveColor: led.Color{Red: 255},
 				Delays: []time.Duration{
-					750 * time.Millisecond,
-					50 * time.Millisecond,
-					50 * time.Millisecond,
-					50 * time.Millisecond,
-					50 * time.Millisecond,
-					50 * time.Millisecond,
+					500 * time.Millisecond, // 750ms off
+					100 * time.Millisecond, // 100ms on
+					100 * time.Millisecond, // 100ms off
+					100 * time.Millisecond, // 100ms on
+					100 * time.Millisecond, // 100ms off
+					100 * time.Millisecond, // 100ms on
 				},
 			},
 		},
@@ -94,12 +94,12 @@ func TestNewBurstPattern(t *testing.T) {
 				BaseColor:   led.Color{Green: 255},
 				ActiveColor: led.Color{Green: 255},
 				Delays: []time.Duration{
-					750 * time.Millisecond,
-					50 * time.Millisecond,
-					50 * time.Millisecond,
-					50 * time.Millisecond,
-					50 * time.Millisecond,
-					50 * time.Millisecond,
+					500 * time.Millisecond, // 750ms off
+					100 * time.Millisecond, // 100ms on
+					100 * time.Millisecond, // 100ms off
+					100 * time.Millisecond, // 100ms on
+					100 * time.Millisecond, // 100ms off
+					100 * time.Millisecond, // 100ms on
 				},
 			},
 		},
