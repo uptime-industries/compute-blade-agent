@@ -79,7 +79,12 @@ nfpms:
   contents:
   - src: ./hack/systemd/computeblade-agent.service
     dst: /etc/systemd/system/computeblade-agent.service
-    type: config
   - src: ./cmd/agent/default-config.yaml
     dst: /etc/computeblade-agent/config.yaml
-    type: config
+    type: config|noreplace
+  - src: ./fanunit.uf2
+    dst: /usr/share/computeblade-agent/fanunit.uf2
+
+release:
+  extra_files:
+    - glob: ./fanunit.uf2

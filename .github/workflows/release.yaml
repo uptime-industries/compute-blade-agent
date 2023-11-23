@@ -52,6 +52,11 @@ jobs:
           path: ${{ steps.go-cache-paths.outputs.go-mod }}
           key: ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
 
+      # Setup tinygo
+      - uses: acifani/setup-tinygo@v2
+        with:
+          tinygo-version: '0.30.0'
+
       # Setup docker buildx
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -68,8 +73,12 @@ jobs:
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3
 
+      # Build fanunit firmware
+      - name: Build FanUnit Firmware
+        run: make build-fanunit
+
       # Run goreleaser
-      - name: Goreleaser
+      - name: Run Goreleaser
         uses: goreleaser/goreleaser-action@v5
         with:
           version: latest

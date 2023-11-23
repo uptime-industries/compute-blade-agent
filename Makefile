@@ -26,9 +26,15 @@ fuzz:
 generate: buf
 	$(BUF) generate
 
-release:
-	goreleaser release --clean
+.PHONY: build-fanunit
+build-fanunit:
+	tinygo build -target=pico -o fanunit.uf2 ./cmd/fanunit/
 
+.PHONY: build-agent
+build-agent: generate
+	goreleaser build --snapshot --clean
+
+.PHONY: snapshot
 snapshot:
 	goreleaser release --snapshot --skip=publish --clean
 
