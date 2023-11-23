@@ -43,68 +43,49 @@ type Controller struct {
 }
 
 func (c *Controller) Run(parentCtx context.Context) error {
-	ctx, cancel := context.WithCancel(parentCtx)
-	defer cancel()
-
 	c.eb = eventbus.New()
 
 	c.FanController.Init()
 	c.FanController.SetFanPercent(c.DefaultFanSpeed)
 	c.LEDs.Write([]byte{0, 0, 0, 0, 0, 0})
 
-	group := errgroup.Group{}
+	group, ctx := errgroup.WithContext(parentCtx)
 
 	// LED Update events
 	println("[+] Starting LED update loop")
 	group.Go(func() error {
-		defer cancel()
-		if err := c.updateLEDs(ctx); err != nil {
-			return err
-		}
-		return nil
+		return c.updateLEDs(ctx)
 	})
 
 	// Fan speed update events
 	println("[+] Starting fan update loop")
 	group.Go(func() error {
-		defer cancel()
-		if err := c.updateFanSpeed(ctx); err != nil {
-			return err
-		}
-		return nil
+		return c.updateFanSpeed(ctx)
 	})
 
 	// Metric reporting events
 	println("[+] Starting metric reporting loop")
 	group.Go(func() error {
-		defer cancel()
-		if err := c.metricReporter(ctx); err != nil {
-			return err
-		}
-		return nil
+		return c.metricReporter(ctx);
 	})
 
 	// Left blade events
 	println("[+] Starting event listener (left)")
 	group.Go(func() error {
-		defer cancel()
 		return c.listenEvents(ctx, c.LeftUART, leftBladeTopicIn)
 	})
 	println("[+] Starting event dispatcher (left)")
 	group.Go(func() error {
-		defer cancel()
 		return c.dispatchEvents(ctx, c.LeftUART, leftBladeTopicOut)
 	})
 
 	// right blade events
 	println("[+] Starting event listener (righ)")
 	group.Go(func() error {
-		defer cancel()
 		return c.listenEvents(ctx, c.RightUART, rightBladeTopicIn)
 	})
 	println("[+] Starting event dispatcher (right)")
 	group.Go(func() error {
-		defer cancel()
 		return c.dispatchEvents(ctx, c.RightUART, rightBladeTopicOut)
 	})
 
@@ -115,8 +96,7 @@ func (c *Controller) Run(parentCtx context.Context) error {
 	})
 
 	group.Go(func() error {
-		defer cancel()
-		ticker := time.NewTicker(10 * time.Millisecond)
+		ticker := time.NewTicker(20 * time.Millisecond)
 		for {
 			select {
 			case <-ctx.Done():
@@ -203,6 +183,13 @@ func (c *Controller) metricReporter(ctx context.Context) error {
 			println("[!] failed to read fan RPM:", err.Error())
 		}
 
+		// FIXME: This is a workaround for an i2c lockup issue.
+		if err != nil {
+			println("[!] resetting CPU")
+			time.Sleep(100*time.Millisecond)
+			machine.CPUReset()
+		}
+
 		// Publish metrics
 		c.eb.Publish(leftBladeTopicOut, airFlowTempLeft.Packet())
 		c.eb.Publish(rightBladeTopicOut, airFlowTempRight.Packet())
@@ -244,7 +231,7 @@ func (c *Controller) updateFanSpeed(ctx context.Context) error {
 func (c *Controller) updateLEDs(ctx context.Context) error {
 	subLeft := c.eb.Subscribe(leftBladeTopicIn, 1, smartfanunit.MatchCmd(smartfanunit.CmdSetLED))
 	defer subLeft.Unsubscribe()
-	subRight := c.eb.Subscribe(rightBladeTopicIn, 1, eventbus.MatchAll)
+	subRight := c.eb.Subscribe(rightBladeTopicIn, 1, smartfanunit.MatchCmd(smartfanunit.CmdSetLED))
 	defer subRight.Unsubscribe()
 
 	var pkt smartfanunit.SetLEDPacket
@@ -257,6 +244,7 @@ func (c *Controller) updateLEDs(ctx context.Context) error {
 		case msg := <-subRight.C():
 			pkt.FromPacket(msg.(proto.Packet))
 			c.rightLed = pkt.Color
+		case <-time.After(500 * time.Millisecond):
 		case <-ctx.Done():
 			return nil
 		}
