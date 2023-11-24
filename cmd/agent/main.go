@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"net"
@@ -14,8 +13,6 @@ import (
 	"syscall"
 	"time"
 
-	_ "embed"
-
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/viper"
 	bladeapiv1alpha1 "github.com/xvzf/computeblade-agent/api/bladeapi/v1alpha1"
@@ -25,22 +22,22 @@ import (
 	"google.golang.org/grpc"
 )
 
-// embed default configuration
-
-//go:embed default-config.yaml
-var defaultConfig []byte
-
 func main() {
 	var wg sync.WaitGroup
 
 	// Setup configuration
 	viper.SetConfigType("yaml")
+
 	// auto-bind environment variables
 	viper.SetEnvPrefix("BLADE")
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
+	viper.SetConfigName("config")
+	viper.SetConfigType("yaml")
+	viper.AddConfigPath("/etc/computeblade-agent")
+
 	// Load potential file configs
-	if err := viper.ReadConfig(bytes.NewBuffer(defaultConfig)); err != nil {
+	if err := viper.ReadInConfig(); err != nil {
 		panic(err)
 	}
 
