@@ -7,9 +7,9 @@ import (
 )
 
 var (
-	fanSpeedTargetPercent = promauto.NewGauge(prometheus.GaugeOpts{
+	fanTargetPercent = promauto.NewGauge(prometheus.GaugeOpts{
 		Namespace: "computeblade",
-		Name:      "fan_speed_target_percent",
+		Name:      "fan_target_percent",
 		Help:      "Target fanspeed in percent",
 	})
 	fanSpeed = promauto.NewGauge(prometheus.GaugeOpts{
