@@ -389,7 +389,7 @@ func (a *computeBladeAgentImpl) runEdgeLedEngine(ctx context.Context) error {
 
 func (a *computeBladeAgentImpl) runFanController(ctx context.Context) error {
 	// Update fan speed periodically
-	ticker := time.NewTicker(15 * time.Second)
+	ticker := time.NewTicker(5 * time.Second)
 
 	for {
 

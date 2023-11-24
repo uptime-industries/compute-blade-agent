@@ -81,7 +81,7 @@ nfpms:
     dst: /etc/systemd/system/computeblade-agent.service
   - src: ./cmd/agent/default-config.yaml
     dst: /etc/computeblade-agent/config.yaml
-    type: config|noreplace
+    type: config
   - src: ./fanunit.uf2
     dst: /usr/share/computeblade-agent/fanunit.uf2
 
