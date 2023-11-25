@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/xvzf/computeblade-agent/pkg/hal"
+	"github.com/xvzf/computeblade-agent/pkg/hal/led"
 	"github.com/xvzf/computeblade-agent/pkg/ledengine"
 	"github.com/xvzf/computeblade-agent/pkg/util"
 )
@@ -18,7 +19,7 @@ func TestNewStaticPattern(t *testing.T) {
 	t.Parallel()
 
 	type args struct {
-		color hal.LedColor
+		color led.Color
 	}
 	tests := []struct {
 		name string
@@ -27,19 +28,19 @@ func TestNewStaticPattern(t *testing.T) {
 	}{
 		{
 			"Green",
-			args{hal.LedColor{Green: 255}},
+			args{led.Color{Green: 255}},
 			ledengine.BlinkPattern{
-				BaseColor:   hal.LedColor{Green: 255},
-				ActiveColor: hal.LedColor{Green: 255},
+				BaseColor:   led.Color{Green: 255},
+				ActiveColor: led.Color{Green: 255},
 				Delays:      []time.Duration{time.Hour},
 			},
 		},
 		{
 			"Red",
-			args{hal.LedColor{Red: 255}},
+			args{led.Color{Red: 255}},
 			ledengine.BlinkPattern{
-				BaseColor:   hal.LedColor{Red: 255},
-				ActiveColor: hal.LedColor{Red: 255},
+				BaseColor:   led.Color{Red: 255},
+				ActiveColor: led.Color{Red: 255},
 				Delays:      []time.Duration{time.Hour},
 			},
 		},
@@ -56,8 +57,8 @@ func TestNewStaticPattern(t *testing.T) {
 func TestNewBurstPattern(t *testing.T) {
 	t.Parallel()
 	type args struct {
-		baseColor  hal.LedColor
-		burstColor hal.LedColor
+		baseColor  led.Color
+		burstColor led.Color
 	}
 	tests := []struct {
 		name string
@@ -67,38 +68,38 @@ func TestNewBurstPattern(t *testing.T) {
 		{
 			"Green <-> Red",
 			args{
-				baseColor:  hal.LedColor{Green: 255},
-				burstColor: hal.LedColor{Red: 255},
+				baseColor:  led.Color{Green: 255},
+				burstColor: led.Color{Red: 255},
 			},
 			ledengine.BlinkPattern{
-				BaseColor:   hal.LedColor{Green: 255},
-				ActiveColor: hal.LedColor{Red: 255},
+				BaseColor:   led.Color{Green: 255},
+				ActiveColor: led.Color{Red: 255},
 				Delays: []time.Duration{
-					750 * time.Millisecond,
-					50 * time.Millisecond,
-					50 * time.Millisecond,
-					50 * time.Millisecond,
-					50 * time.Millisecond,
-					50 * time.Millisecond,
+					500 * time.Millisecond, // 750ms off
+					100 * time.Millisecond, // 100ms on
+					100 * time.Millisecond, // 100ms off
+					100 * time.Millisecond, // 100ms on
+					100 * time.Millisecond, // 100ms off
+					100 * time.Millisecond, // 100ms on
 				},
 			},
 		},
 		{
 			"Green <-> Green (valid, but no visual effect)",
 			args{
-				baseColor:  hal.LedColor{Green: 255},
-				burstColor: hal.LedColor{Green: 255},
+				baseColor:  led.Color{Green: 255},
+				burstColor: led.Color{Green: 255},
 			},
 			ledengine.BlinkPattern{
-				BaseColor:   hal.LedColor{Green: 255},
-				ActiveColor: hal.LedColor{Green: 255},
+				BaseColor:   led.Color{Green: 255},
+				ActiveColor: led.Color{Green: 255},
 				Delays: []time.Duration{
-					750 * time.Millisecond,
-					50 * time.Millisecond,
-					50 * time.Millisecond,
-					50 * time.Millisecond,
-					50 * time.Millisecond,
-					50 * time.Millisecond,
+					500 * time.Millisecond, // 750ms off
+					100 * time.Millisecond, // 100ms on
+					100 * time.Millisecond, // 100ms off
+					100 * time.Millisecond, // 100ms on
+					100 * time.Millisecond, // 100ms off
+					100 * time.Millisecond, // 100ms on
 				},
 			},
 		},
@@ -114,8 +115,8 @@ func TestNewBurstPattern(t *testing.T) {
 
 func TestNewSlowBlinkPattern(t *testing.T) {
 	type args struct {
-		baseColor   hal.LedColor
-		activeColor hal.LedColor
+		baseColor   led.Color
+		activeColor led.Color
 	}
 	tests := []struct {
 		name string
@@ -154,8 +155,8 @@ func Test_LedEngine_SetPattern_WhileRunning(t *testing.T) {
 	clk.On("After", time.Hour).Times(2).Return(clkAfterChan)
 
 	cbMock := hal.ComputeBladeHalMock{}
-	cbMock.On("SetLed", uint(0), hal.LedColor{Green: 0, Blue: 0, Red: 0}).Once().Return(nil)
-	cbMock.On("SetLed", uint(0), hal.LedColor{Green: 0, Blue: 0, Red: 255}).Once().Return(nil)
+	cbMock.On("SetLed", uint(0), led.Color{Green: 0, Blue: 0, Red: 0}).Once().Return(nil)
+	cbMock.On("SetLed", uint(0), led.Color{Green: 0, Blue: 0, Red: 255}).Once().Return(nil)
 
 	opts := ledengine.LedEngineOpts{
 		Hal:    &cbMock,
@@ -182,7 +183,7 @@ func Test_LedEngine_SetPattern_WhileRunning(t *testing.T) {
 
 	// Set pattern
 	t.Log("Setting pattern")
-	err := engine.SetPattern(ledengine.NewStaticPattern(hal.LedColor{Red: 255}))
+	err := engine.SetPattern(ledengine.NewStaticPattern(led.Color{Red: 255}))
 	assert.NoError(t, err)
 
 	t.Log("Canceling context")
@@ -201,7 +202,7 @@ func Test_LedEngine_SetPattern_BeforeRun(t *testing.T) {
 	clk.On("After", time.Hour).Once().Return(clkAfterChan)
 
 	cbMock := hal.ComputeBladeHalMock{}
-	cbMock.On("SetLed", uint(0), hal.LedColor{Green: 0, Blue: 0, Red: 255}).Once().Return(nil)
+	cbMock.On("SetLed", uint(0), led.Color{Green: 0, Blue: 0, Red: 255}).Once().Return(nil)
 
 	opts := ledengine.LedEngineOpts{
 		Hal:    &cbMock,
@@ -212,7 +213,7 @@ func Test_LedEngine_SetPattern_BeforeRun(t *testing.T) {
 	engine := ledengine.NewLedEngine(opts)
 	// We want to change the pattern BEFORE the engine is started
 	t.Log("Setting pattern")
-	err := engine.SetPattern(ledengine.NewStaticPattern(hal.LedColor{Red: 255}))
+	err := engine.SetPattern(ledengine.NewStaticPattern(led.Color{Red: 255}))
 	assert.NoError(t, err)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
@@ -243,8 +244,8 @@ func Test_LedEngine_SetPattern_SetLedFailureInPattern(t *testing.T) {
 	clk.On("After", time.Hour).Once().Return(clkAfterChan)
 
 	cbMock := hal.ComputeBladeHalMock{}
-	call0 := cbMock.On("SetLed", uint(0), hal.LedColor{Green: 0, Blue: 0, Red: 0}).Once().Return(nil)
-	cbMock.On("SetLed", uint(0), hal.LedColor{Green: 0, Blue: 0, Red: 0}).Once().Return(errors.New("failure")).NotBefore(call0)
+	call0 := cbMock.On("SetLed", uint(0), led.Color{Green: 0, Blue: 0, Red: 0}).Once().Return(nil)
+	cbMock.On("SetLed", uint(0), led.Color{Green: 0, Blue: 0, Red: 0}).Once().Return(errors.New("failure")).NotBefore(call0)
 
 	opts := ledengine.LedEngineOpts{
 		Hal:    &cbMock,

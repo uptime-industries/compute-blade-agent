@@ -1,4 +1,4 @@
-//go:build linux
+//go:build linux && !tinygo
 
 package hal
 
@@ -16,6 +16,10 @@ import (
 
 	"github.com/warthog618/gpiod"
 	"github.com/warthog618/gpiod/device/rpi"
+	"github.com/xvzf/computeblade-agent/pkg/hal/led"
+	"github.com/xvzf/computeblade-agent/pkg/log"
+	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -52,6 +56,8 @@ const (
 	bcm2711DebounceInterval = 100 * time.Millisecond
 
 	bcm2711ThermalZonePath = "/sys/class/thermal/thermal_zone0/temp"
+
+	smartFanUnitDev = "/dev/ttyAMA5" // UART5
 )
 
 type bcm2711 struct {
@@ -73,7 +79,7 @@ type bcm2711 struct {
 	gpioChip0 *gpiod.Chip
 
 	// Save LED colors so the pixels can be updated individually
-	leds [2]LedColor
+	leds [2]led.Color
 
 	// Stealth mode output
 	stealthModeLine *gpiod.Line
@@ -86,13 +92,11 @@ type bcm2711 struct {
 	// PoE detection input
 	poeLine *gpiod.Line
 
-	// Fan tach input
-	fanEdgeLine      *gpiod.Line
-	lastFanEdgeEvent *gpiod.LineEvent
-	fanRpm           float64
+	// Fan unit
+	fanUnit FanUnit
 }
 
-func NewCm4Hal(opts ComputeBladeHalOpts) (ComputeBladeHal, error) {
+func NewCm4Hal(ctx context.Context, opts ComputeBladeHalOpts) (ComputeBladeHal, error) {
 	// /dev/gpiomem doesn't allow complex operations for PWM fan control or WS281x
 	devmem, err := os.OpenFile("/dev/mem", os.O_RDWR|os.O_SYNC, os.ModePerm)
 	if err != nil {
@@ -134,83 +138,32 @@ func NewCm4Hal(opts ComputeBladeHalOpts) (ComputeBladeHal, error) {
 
 	computeModule.WithLabelValues("cm4").Set(1)
 
-	return bcm, bcm.setup()
+	log.FromContext(ctx).Info("starting hal setup", zap.String("hal", "bcm2711"))
+	err = bcm.setup(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return bcm, nil
 }
 
 // Close cleans all memory mappings
 func (bcm *bcm2711) Close() error {
 	errs := errors.Join(
+		bcm.fanUnit.Close(),
 		syscall.Munmap(bcm.gpioMem8),
 		syscall.Munmap(bcm.pwmMem8),
 		syscall.Munmap(bcm.clkMem8),
 		bcm.devmem.Close(),
 		bcm.gpioChip0.Close(),
-		bcm.edgeButtonLine.Close(),
 		bcm.poeLine.Close(),
 		bcm.stealthModeLine.Close(),
 	)
 
-	if bcm.fanEdgeLine != nil {
-		return errors.Join(errs, bcm.fanEdgeLine.Close())
-	}
 	return errs
 }
 
-// handleFanEdge handles an edge event on the fan tach input for the standard fan unite.
-// Exponential moving average is used to smooth out the fan speed.
-func (bcm *bcm2711) handleFanEdge(evt gpiod.LineEvent) {
-	// Ensure we're always storing the last event
-	defer func() {
-		bcm.lastFanEdgeEvent = &evt
-	}()
-
-	// First event, we cannot extrapolate the fan speed yet
-	if bcm.lastFanEdgeEvent == nil {
-		return
-	}
-
-	// Calculate time delta between events
-	delta := evt.Timestamp - bcm.lastFanEdgeEvent.Timestamp
-	ticksPerSecond := 1000.0 / float64(delta.Milliseconds())
-	rpm := (ticksPerSecond * 60.0) / 2.0 // 2 ticks per revolution
-
-	// Simple moving average to smooth out the fan speed
-	bcm.fanRpm = (rpm * 0.1) + (bcm.fanRpm * 0.9)
-	fanSpeed.Set(bcm.fanRpm)
-}
-
-func (bcm *bcm2711) handleEdgeButtonEdge(evt gpiod.LineEvent) {
-	// Despite the debounce, we still get multiple events for a single button press
-	// -> This is an in-software debounce to ensure we only get one event per button press
-	select {
-	case bcm.edgeButtonDebounceChan <- struct{}{}:
-		go func() {
-			// Manually debounce the button
-			<-bcm.edgeButtonDebounceChan
-			time.Sleep(bcm2711DebounceInterval)
-			edgeButtonEventCount.Inc()
-			close(bcm.edgeButtonWatchChan)
-			bcm.edgeButtonWatchChan = make(chan struct{})
-		}()
-	default:
-		// noop
-		return
-	}
-}
-
-// WaitForEdgeButtonPress blocks until the edge button has been pressed
-func (bcm *bcm2711) WaitForEdgeButtonPress(ctx context.Context) error {
-	// Either wait for the context to be cancelled or the edge button to be pressed
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-bcm.edgeButtonWatchChan:
-		return nil
-	}
-}
-
 // Init initialises GPIOs and sets sane defaults
-func (bcm *bcm2711) setup() error {
+func (bcm *bcm2711) setup(ctx context.Context) error {
 	var err error = nil
 
 	// Register edge event handler for edge button
@@ -233,29 +186,97 @@ func (bcm *bcm2711) setup() error {
 		return err
 	}
 
-	// standard fan unit
-	if bcm.opts.FanUnit == FanUnitStandard {
-		fanUnit.WithLabelValues("standard").Set(1)
-		// FAN PWM output for standard fan unit (GPIO 12)
-		// -> bcm2711RegGpfsel1 8:6, alt0
-		bcm.gpioMem[bcm2711RegGpfsel1] = (bcm.gpioMem[bcm2711RegGpfsel1] &^ (0b111 << 6)) | (0b100 << 6)
-		// Register edge event handler for fan tach input
-		bcm.fanEdgeLine, err = bcm.gpioChip0.RequestLine(
-			rpi.GPIO13,
-			gpiod.WithEventHandler(bcm.handleFanEdge),
-			gpiod.WithFallingEdge,
-			gpiod.WithPullUp,
-		)
+	// Setup correct fan unit
+	log.FromContext(ctx).Info("detecting fan unit")
+	detectCtx, cancel := context.WithTimeout(ctx, 3*time.Second) // temp events are sent every 2 seconds
+	defer cancel()
+
+	if smartFanUnitPresent, err := SmartFanUnitPresent(detectCtx, smartFanUnitDev); err == nil && smartFanUnitPresent {
+		log.FromContext(ctx).Error("detected smart fan unit")
+		bcm.fanUnit, err = NewSmartFanUnit(smartFanUnitDev)
 		if err != nil {
 			return err
 		}
+	} else {
+		log.FromContext(ctx).Info("no smart fan unit detected, assuming standard fan unit", zap.Error(err))
+		// FAN PWM output for standard fan unit (GPIO 12)
+		// -> bcm2711RegGpfsel1 8:6, alt0
+		bcm.gpioMem[bcm2711RegGpfsel1] = (bcm.gpioMem[bcm2711RegGpfsel1] &^ (0b111 << 6)) | (0b100 << 6)
+		bcm.fanUnit = &standardFanUnitBcm2711{
+			GpioChip0:           bcm.gpioChip0,
+			DisableRPMreporting: !bcm.opts.RpmReportingStandardFanUnit,
+			SetFanSpeedPwmFunc: func(speed uint8) error {
+				bcm.setFanSpeedPWM(speed)
+				return nil
+			},
+		}
 	}
 
-	return err
+	return nil
 }
 
-func (bcm2711 *bcm2711) GetFanRPM() (float64, error) {
-	return bcm2711.fanRpm, nil
+func (bcm *bcm2711) Run(parentCtx context.Context) error {
+	ctx, cancel := context.WithCancel(parentCtx)
+	defer cancel()
+
+	group := errgroup.Group{}
+
+	group.Go(func() error {
+		defer cancel()
+		return bcm.fanUnit.Run(ctx)
+	})
+
+	return group.Wait()
+}
+
+func (bcm *bcm2711) handleEdgeButtonEdge(evt gpiod.LineEvent) {
+	// Despite the debounce, we still get multiple events for a single button press
+	// -> This is an in-software debounce to ensure we only get one event per button press
+	select {
+	case bcm.edgeButtonDebounceChan <- struct{}{}:
+		go func() {
+			// Manually debounce the button
+			<-bcm.edgeButtonDebounceChan
+			time.Sleep(bcm2711DebounceInterval)
+			edgeButtonEventCount.Inc()
+			close(bcm.edgeButtonWatchChan)
+			bcm.edgeButtonWatchChan = make(chan struct{})
+		}()
+	default:
+		// noop
+		return
+	}
+}
+
+// WaitForEdgeButtonPress blocks until the edge button has been pressed
+func (bcm *bcm2711) WaitForEdgeButtonPress(parentCtx context.Context) error {
+	ctx, cancel := context.WithCancel(parentCtx)
+	defer cancel()
+
+	fanUnitChan := make(chan struct{})
+	go func() {
+		err := bcm.fanUnit.WaitForButtonPress(ctx)
+		if err != nil && err != context.Canceled {
+			log.FromContext(ctx).Error("failed to wait for button press", zap.Error(err))
+		} else {
+			close(fanUnitChan)
+		}
+	}()
+
+	// Either wait for the context to be cancelled or the edge button to be pressed
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-bcm.edgeButtonWatchChan:
+		return nil
+	case <-fanUnitChan:
+		return nil
+	}
+}
+
+func (bcm *bcm2711) GetFanRPM() (float64, error) {
+	rpm, err := bcm.fanUnit.FanSpeedRPM(context.TODO())
+	return float64(rpm), err
 }
 
 func (bcm *bcm2711) GetPowerStatus() (PowerStatus, error) {
@@ -316,9 +337,7 @@ func (bcm *bcm2711) setPwm0Freq(targetFrequency uint64) error {
 
 // SetFanSpeed sets the fanspeed of a blade in percent (standard fan unit)
 func (bcm *bcm2711) SetFanSpeed(speed uint8) error {
-	fanSpeedTargetPercent.Set(float64(speed))
-	bcm.setFanSpeedPWM(speed)
-	return nil
+	return bcm.fanUnit.SetFanSpeedPercent(context.TODO(), speed)
 }
 
 func (bcm *bcm2711) setFanSpeedPWM(speed uint8) {
@@ -381,9 +400,14 @@ func serializePwmDataFrame(data uint8) uint32 {
 	return result
 }
 
-func (bcm *bcm2711) SetLed(idx uint, color LedColor) error {
+func (bcm *bcm2711) SetLed(idx uint, color led.Color) error {
 	if idx >= 2 {
 		return fmt.Errorf("invalid led index %d, supported: [0, 1]", idx)
+	}
+
+	// Update the fan unit LED if the index is the same as the fan unit LED index
+	if idx == LedEdge {
+		bcm.fanUnit.SetLed(context.TODO(), color)
 	}
 
 	bcm.leds[idx] = color

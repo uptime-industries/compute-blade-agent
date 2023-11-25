@@ -3,3 +3,5 @@ dist/
 
 *.test
 *.out
+cover.cov
+fanunit.u2f

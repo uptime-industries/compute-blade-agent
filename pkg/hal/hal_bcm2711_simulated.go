@@ -6,6 +6,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/xvzf/computeblade-agent/pkg/hal/led"
 	"go.uber.org/zap"
 )
 
@@ -17,16 +18,23 @@ type SimulatedHal struct {
 	logger *zap.Logger
 }
 
-func NewCm4Hal(_ ComputeBladeHalOpts) (ComputeBladeHal, error) {
+func NewCm4Hal(_ context.Context, _ ComputeBladeHalOpts) (ComputeBladeHal, error) {
 	logger := zap.L().Named("hal").Named("simulated-cm4")
 	logger.Warn("Using simulated hal")
 
 	computeModule.WithLabelValues("simulated").Set(1)
 	fanUnit.WithLabelValues("simulated").Set(1)
 
+	socTemperature.Set(42)
+
 	return &SimulatedHal{
 		logger: logger,
 	}, nil
+}
+
+func (m *SimulatedHal) Run(ctx context.Context) error {
+	<-ctx.Done()
+	return ctx.Err()
 }
 
 func (m *SimulatedHal) Close() error {
@@ -71,7 +79,7 @@ func (m *SimulatedHal) WaitForEdgeButtonPress(ctx context.Context) error {
 	}
 }
 
-func (m *SimulatedHal) SetLed(idx uint, color LedColor) error {
+func (m *SimulatedHal) SetLed(idx uint, color led.Color) error {
 	ledColorChangeEventCount.Inc()
 	m.logger.Info("SetLed", zap.Uint("idx", idx), zap.Any("color", color))
 	return nil

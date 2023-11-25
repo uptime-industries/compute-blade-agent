@@ -10,13 +10,12 @@ listen:
 
 # Hardware abstraction layer configuration
 hal:
-  bcm2711:
-    # For the default fan unit, fanspeed measurement is causing a tiny bit of CPU laod.
-    # Sometimes it might not be desired
-    disable_fanspeed_measurement: false
+  # For the default fan unit, fanspeed measurement is causing a tiny bit of CPU laod.
+  # Sometimes it might not be desired
+  rpm_reporting_standard_fan_unit: true
 
 # Idle LED color, values range from 0-255
-idle_led_color: 
+idle_led_color:
   red: 0
   green: 16
   blue: 0

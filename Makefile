@@ -1,5 +1,6 @@
+FUZZ_TARGETS := ./pkg/smartfanunit/proto
 
-all: lint
+all: lint test
 
 .PHONY: run
 run:
@@ -13,15 +14,29 @@ lint:
 test:
 	go test ./... -v
 
+
+.PHONY: fuzz
+fuzz:
+	@for target in $(FUZZ_TARGETS); do \
+		go test  -fuzz="Fuzz" -fuzztime=5s -fuzzminimizetime=10s  $$target; \
+	done
+
+
 .PHONY: generate
 generate: buf
 	$(BUF) generate
 
-release:
-	goreleaser release --clean
+.PHONY: build-fanunit
+build-fanunit:
+	tinygo build -target=pico -o fanunit.uf2 ./cmd/fanunit/
 
+.PHONY: build-agent
+build-agent: generate
+	goreleaser build --snapshot --clean
+
+.PHONY: snapshot
 snapshot:
-	goreleaser release --snapshot --skip-publish --clean
+	goreleaser release --snapshot --skip=publish --clean
 
 # Dependencies
 LOCALBIN ?= $(shell pwd)/bin

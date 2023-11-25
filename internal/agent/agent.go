@@ -10,6 +10,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/xvzf/computeblade-agent/pkg/fancontroller"
 	"github.com/xvzf/computeblade-agent/pkg/hal"
+	"github.com/xvzf/computeblade-agent/pkg/hal/led"
 	"github.com/xvzf/computeblade-agent/pkg/ledengine"
 	"github.com/xvzf/computeblade-agent/pkg/log"
 	"go.uber.org/zap"
@@ -63,12 +64,12 @@ func (e Event) String() string {
 
 type ComputeBladeAgentConfig struct {
 	// IdleLedColor is the color of the edge LED when the blade is idle mode
-	IdleLedColor hal.LedColor `mapstructure:"idle_led_color"`
+	IdleLedColor led.Color `mapstructure:"idle_led_color"`
 	// IdentifyLedColor is the color of the edge LED when the blade is in identify mode
-	IdentifyLedColor hal.LedColor `mapstructure:"identify_led_color"`
+	IdentifyLedColor led.Color `mapstructure:"identify_led_color"`
 	// CriticalLedColor is the color of the top(!) LED when the blade is in critical mode.
 	// In the circumstance when >1 blades are in critical mode, the identidy function can be used to find the right blade
-	CriticalLedColor hal.LedColor `mapstructure:"critical_led_color"`
+	CriticalLedColor led.Color `mapstructure:"critical_led_color"`
 
 	// StealthModeEnabled indicates whether stealth mode is enabled
 	StealthModeEnabled bool `mapstructure:"stealth_mode"`
@@ -80,6 +81,8 @@ type ComputeBladeAgentConfig struct {
 	FanSpeed *fancontroller.FanOverrideOpts `mapstructure:"fan_speed"`
 	// FanControllerConfig is the configuration of the fan controller
 	FanControllerConfig fancontroller.FanControllerConfig `mapstructure:"fan_controller"`
+
+	ComputeBladeHalOpts hal.ComputeBladeHalOpts `mapstructure:"hal"`
 }
 
 // ComputeBladeAgent implements the core-logic of the agent. It is responsible for handling events and interfacing with the hardware.
@@ -110,13 +113,11 @@ type computeBladeAgentImpl struct {
 	eventChan chan Event
 }
 
-func NewComputeBladeAgent(opts ComputeBladeAgentConfig) (ComputeBladeAgent, error) {
+func NewComputeBladeAgent(ctx context.Context, opts ComputeBladeAgentConfig) (ComputeBladeAgent, error) {
 	var err error
 
 	// blade, err := hal.NewCm4Hal(hal.ComputeBladeHalOpts{
-	blade, err := hal.NewCm4Hal(hal.ComputeBladeHalOpts{
-		FanUnit: hal.FanUnitStandard, // FIXME: support smart fan unit
-	})
+	blade, err := hal.NewCm4Hal(ctx, opts.ComputeBladeHalOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -170,6 +171,17 @@ func (a *computeBladeAgentImpl) Run(origCtx context.Context) error {
 	if err := a.blade.SetStealthMode(a.opts.StealthModeEnabled); err != nil {
 		return err
 	}
+
+	// Run HAL
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		log.FromContext(ctx).Info("Starting HAL")
+		if err := a.blade.Run(ctx); err != nil && err != context.Canceled {
+			log.FromContext(ctx).Error("HAL failed", zap.Error(err))
+			cancelCtx(err)
+		}
+	}()
 
 	// Start edge button event handler
 	wg.Add(1)
@@ -258,11 +270,14 @@ func (a *computeBladeAgentImpl) cleanup(ctx context.Context) {
 	if err := a.blade.SetFanSpeed(100); err != nil {
 		log.FromContext(ctx).Error("Failed to set fan speed to 100%", zap.Error(err))
 	}
-	if err := a.blade.SetLed(hal.LedEdge, hal.LedColor{}); err != nil {
+	if err := a.blade.SetLed(hal.LedEdge, led.Color{}); err != nil {
 		log.FromContext(ctx).Error("Failed to set edge LED to off", zap.Error(err))
 	}
-	if err := a.blade.SetLed(hal.LedTop, hal.LedColor{}); err != nil {
+	if err := a.blade.SetLed(hal.LedTop, led.Color{}); err != nil {
 		log.FromContext(ctx).Error("Failed to set edge LED to off", zap.Error(err))
+	}
+	if err := a.Close(); err != nil {
+		log.FromContext(ctx).Error("Failed to close blade", zap.Error(err))
 	}
 }
 
@@ -306,7 +321,7 @@ func (a *computeBladeAgentImpl) handleEvent(ctx context.Context, event Event) er
 
 func (a *computeBladeAgentImpl) handleIdentifyActive(ctx context.Context) error {
 	log.FromContext(ctx).Info("Identify active")
-	return a.edgeLedEngine.SetPattern(ledengine.NewBurstPattern(hal.LedColor{}, a.opts.IdentifyLedColor))
+	return a.edgeLedEngine.SetPattern(ledengine.NewBurstPattern(led.Color{}, a.opts.IdentifyLedColor))
 }
 
 func (a *computeBladeAgentImpl) handleIdentifyConfirm(ctx context.Context) error {
@@ -325,7 +340,7 @@ func (a *computeBladeAgentImpl) handleCriticalActive(ctx context.Context) error 
 
 	// Set critical pattern for top LED
 	setPatternTopLedErr := a.topLedEngine.SetPattern(
-		ledengine.NewSlowBlinkPattern(hal.LedColor{}, a.opts.CriticalLedColor),
+		ledengine.NewSlowBlinkPattern(led.Color{}, a.opts.CriticalLedColor),
 	)
 	// Combine errors, but don't stop execution flow for now
 	return errors.Join(setStealthModeError, setPatternTopLedErr)
@@ -342,7 +357,7 @@ func (a *computeBladeAgentImpl) handleCriticalReset(ctx context.Context) error {
 	}
 
 	// Set top LED off
-	if err := a.topLedEngine.SetPattern(ledengine.NewStaticPattern(hal.LedColor{})); err != nil {
+	if err := a.topLedEngine.SetPattern(ledengine.NewStaticPattern(led.Color{})); err != nil {
 		return err
 	}
 
@@ -356,7 +371,7 @@ func (a *computeBladeAgentImpl) Close() error {
 // runTopLedEngine runs the top LED engine
 func (a *computeBladeAgentImpl) runTopLedEngine(ctx context.Context) error {
 	// FIXME the top LED is only used to indicate emergency situations
-	err := a.topLedEngine.SetPattern(ledengine.NewStaticPattern(hal.LedColor{}))
+	err := a.topLedEngine.SetPattern(ledengine.NewStaticPattern(led.Color{}))
 	if err != nil {
 		return err
 	}

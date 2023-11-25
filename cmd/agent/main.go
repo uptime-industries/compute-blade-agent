@@ -36,7 +36,7 @@ func main() {
 	// Setup configuration
 	viper.SetConfigType("yaml")
 	// auto-bind environment variables
-	viper.SetEnvPrefix("AGENT")
+	viper.SetEnvPrefix("BLADE")
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
 	// Load potential file configs
@@ -56,7 +56,9 @@ func main() {
 	}
 
 	zapLogger := baseLogger.With(zap.String("app", "computeblade-agent"))
-	defer zapLogger.Sync()
+	defer func() {
+		_ = zapLogger.Sync()
+	}()
 	_ = zap.ReplaceGlobals(zapLogger.With(zap.String("scope", "global")))
 	baseCtx := log.IntoContext(context.Background(), zapLogger)
 
@@ -67,12 +69,6 @@ func main() {
 	var cbAgentConfig agent.ComputeBladeAgentConfig
 	if err := viper.Unmarshal(&cbAgentConfig); err != nil {
 		log.FromContext(ctx).Error("Failed to load configuration", zap.Error(err))
-		cancelCtx(err)
-	}
-
-	computebladeAgent, err := agent.NewComputeBladeAgent(cbAgentConfig)
-	if err != nil {
-		log.FromContext(ctx).Error("Failed to create agent", zap.Error(err))
 		cancelCtx(err)
 	}
 
@@ -91,10 +87,19 @@ func main() {
 		}
 	}()
 
+	log.FromContext(ctx).Info("Bootstrapping computeblade-agent", zap.String("version", viper.GetString("version")))
+	computebladeAgent, err := agent.NewComputeBladeAgent(ctx, cbAgentConfig)
+	if err != nil {
+		log.FromContext(ctx).Error("Failed to create agent", zap.Error(err))
+		cancelCtx(err)
+		os.Exit(1)
+	}
+
 	// Run agent
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		log.FromContext(ctx).Info("Starting agent")
 		err := computebladeAgent.Run(ctx)
 		if err != nil && err != context.Canceled {
 			log.FromContext(ctx).Error("Failed to run agent", zap.Error(err))

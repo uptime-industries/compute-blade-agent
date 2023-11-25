@@ -3,61 +3,12 @@ package hal
 import (
 	"context"
 
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/xvzf/computeblade-agent/pkg/hal/led"
 )
 
-type FanUnit uint8
+type FanUnitKind uint8
 type ComputeModule uint8
 type PowerStatus uint8
-
-var (
-	fanSpeedTargetPercent = promauto.NewGauge(prometheus.GaugeOpts{
-		Namespace: "computeblade",
-		Name:      "fan_speed_target_percent",
-		Help:      "Target fanspeed in percent",
-	})
-	fanSpeed = promauto.NewGauge(prometheus.GaugeOpts{
-		Namespace: "computeblade",
-		Name:      "fan_speed",
-		Help:      "Fan speed in RPM",
-	})
-	socTemperature = promauto.NewGauge(prometheus.GaugeOpts{
-		Namespace: "computeblade",
-		Name:      "soc_temperature",
-		Help:      "SoC temperature in °C",
-	})
-	computeModule = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Namespace: "computeblade",
-		Name:      "compute_modul_present",
-		Help:      "Compute module type",
-	}, []string{"type"})
-	ledColorChangeEventCount = promauto.NewCounter(prometheus.CounterOpts{
-		Namespace: "computeblade",
-		Name:      "led_color_change_event_count",
-		Help:      "Led color change event_count",
-	})
-	powerStatus = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Namespace: "computeblade",
-		Name:      "power_status",
-		Help:      "Power status of the blade",
-	}, []string{"type"})
-	stealthModeEnabled = promauto.NewGauge(prometheus.GaugeOpts{
-		Namespace: "computeblade",
-		Name:      "stealth_mode_enabled",
-		Help:      "Stealth mode enabled",
-	})
-	fanUnit = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Namespace: "computeblade",
-		Name:      "fan_unit",
-		Help:      "Fan unit",
-	}, []string{"type"})
-	edgeButtonEventCount = promauto.NewCounter(prometheus.CounterOpts{
-		Namespace: "computeblade",
-		Name:      "edge_button_event_count",
-		Help:      "Number of edge button presses",
-	})
-)
 
 func (p PowerStatus) String() string {
 	switch p {
@@ -71,8 +22,9 @@ func (p PowerStatus) String() string {
 }
 
 const (
-	FanUnitStandard = iota
-	FanUnitSmart
+	FanUnitKindStandard = iota
+	FanUnitKindStandardNoRPM
+	FanUnitKindSmart
 )
 
 const (
@@ -85,18 +37,15 @@ const (
 	LedEdge
 )
 
-type LedColor struct {
-	Red   uint8 `mapstructure:"red"`
-	Green uint8 `mapstructure:"green"`
-	Blue  uint8 `mapstructure:"blue"`
-}
-
 type ComputeBladeHalOpts struct {
-	FanUnit FanUnit
+	RpmReportingStandardFanUnit bool `mapstructure:"rpm_reporting_standard_fan_unit"`
 }
 
 // ComputeBladeHal abstracts hardware details of the Compute Blade and provides a simple interface
 type ComputeBladeHal interface {
+	// Run starts background tasks and returns when the context is cancelled or an error occurs
+	Run(ctx context.Context) error
+	// Close closes the ComputeBladeHal
 	Close() error
 	// SetFanSpeed sets the fan speed in percent
 	SetFanSpeed(speed uint8) error
@@ -105,11 +54,39 @@ type ComputeBladeHal interface {
 	// SetStealthMode enables/disables stealth mode of the blade (turning on/off the LEDs)
 	SetStealthMode(enabled bool) error
 	// SetLEDs sets the color of the LEDs
-	SetLed(idx uint, color LedColor) error
+	SetLed(idx uint, color led.Color) error
 	// GetPowerStatus returns the current power status of the blade
 	GetPowerStatus() (PowerStatus, error)
 	// GetTemperature returns the current temperature of the SoC in °C
 	GetTemperature() (float64, error)
 	// GetEdgeButtonPressChan returns a channel emitting edge button press events
 	WaitForEdgeButtonPress(ctx context.Context) error
+}
+
+
+// FanUnit abstracts the fan unit
+type FanUnit interface {
+
+	// Kind returns the kind of the fan FanUnit
+	Kind() FanUnitKind
+
+	// Run the client with event loop
+	Run(context.Context) error
+
+	// SetFanSpeedPercent sets the fan speed in percent.
+	SetFanSpeedPercent(context.Context, uint8) error
+
+	// SetLed sets the LED color. Noop if the LED is not available.
+	SetLed(context.Context, led.Color) error
+
+	// FanSpeedRPM returns the current fan speed in rotations per minute.
+	FanSpeedRPM(context.Context) (float64, error)
+
+	// WaitForButtonPress blocks until the button is pressed. Noop if the button is not available.
+	WaitForButtonPress(context.Context) error
+
+	// AirFlowTemperature returns the temperature of the air flow. Noop if the sensor is not available.
+	AirFlowTemperature(context.Context) (float32, error)
+
+	Close() error
 }
