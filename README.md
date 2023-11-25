@@ -1,11 +1,10 @@
 # computeblade-agent
-> :warning: this is still a beta-release & configuration&APIs might see breaking changes! It's not 100% feature complete yet but works
 
-The `computeblade-agent` is an OS agent interfacing with the [ComputeBlade](http://computeblade.com) hardware.
-It controls fan speed, LEDs and handles common events e.g.  to _identify_/find an individual blade in a server rack.
-In addition, it exposes hardware- and agent-related metrics on a [Prometheus](http://prometheus.io) endpoint.
+> :warning: **Beta Release**: This software is currently in beta, and both configurations and APIs may undergo breaking changes. It is not yet 100% feature complete, but it functions as intended.
 
-**TL;DR, I just want it running on my blade script**:
+The `computeblade-agent` serves as an operating system agent interfacing with [ComputeBlade](http://computeblade.com) hardware. It takes charge of fan speed, LEDs, and manages common events, such as identifying or locating an individual blade in a server rack. Additionally, it exposes hardware- and agent-related metrics on a [Prometheus](http://prometheus.io) endpoint.
+
+**Quick Setup with TL;DR**:
 ```bash
 curl -L -o /tmp/computeblade-agent-installer.sh https://raw.githubusercontent.com/Uptime-Lab/computeblade-agent/main/hack/autoinstall.sh
 chmod +x /tmp/computeblade-agent-installer.sh
@@ -15,47 +14,40 @@ chmod +x /tmp/computeblade-agent-installer.sh
 ## Components
 
 ### computeblade-agent
-The agent is an event-loop handler that's reacting on system events such as button presses and temperature changes.
-It also exposes a prometheus endpoint allowing monitoring of core-metrics such as PoE status.
+This event-loop handler responds to system events, such as button presses and temperature changes. It offers a Prometheus endpoint for monitoring core metrics, including Power over Ethernet (PoE) status.
 
-By default, the computeblade agent runs in _normal_ operation mode; the LEDs are static and fanspeed is set based on the configuration.
-In case the SoC temperature raises above a predefined level, the _critical_ mode is active and sets the fan-speed to 100% alongside changing the LED color (Red by default)
+In normal operation mode, the agent maintains static LEDs and fan speed based on the configuration. If the System on Chip (SoC) temperature exceeds a predefined level, the critical mode is activated, setting the fan speed to 100% and changing the LED color to red. The _identify_ action, independent of the mode, makes the edge LED blink. This can be toggled using `bladectl` on the blade (`bladectl identify`) or by pressing the edge button (or smart fan unit button).
 
-Aside from the above mentioned normal and critical modes, the _identify_ action (independend of the mode), which lets the edge LED blink.
-This can be toggled using `bladectl` on the blade (`bladectl identify`) or by pressing the edge button.
-
+### Smart Fan Unit Firmware
+This firmware controls fan speed and LEDs on the fan unit using a UART-based protocol with agents running on the blades. It reports metrics (fan RPM and airflow temperature) regularly to the blades and forwards button presses (1x -> left blade, 2x -> right blade). The fan unit determines the highest requested fan speed, configuring the fan control chip on the board. Advanced functionalities, such as airflow-based fan curve control, are possible with the EMC2101 chip on the smart fan unit, currently implemented in software on the agent side.
 
 ### bladectl - interacting with the agent
-The bladectl interacts with the blade-local API exposed by the computeblade-agent.
-You can e.g. identify the blade in a rack using `bladectl identify --wait`, which will block & make the edge-LED blink until the button is pressed.
+`bladectl` interacts with the blade-local API exposed by the computeblade-agent. For instance, you can identify the blade in a rack using `bladectl identify --wait`, which blocks and makes the edge LED blink until the button is pressed.
 
+## Installation Options
 
-## Install Options
+The agent and `bladectl` are available as packages for Debian, RPM, and ArchLinux or as an OCI image to run within Docker/Kubernetes. Packages include a systemd unit, which can be enabled using `systemd enable computeblade-agent.service --now`.
 
-The agent and bladectl are provided as package for Debian, RPM and ArchLinux or as OCI image to run within docker/Kubernetes.
-Packages ship with a systemd unit which can be enabled using `systemd enable computeblade-agent.service --now`.
+For global access, `bladectl` requires root privileges since the socket (default `/tmp/computeblade-agent.sock`) does not have user/group access due to privileged access to critical resources.
 
-`bladectl` is available globally, but has to be executed as root since the socket (default `/tmp/computeblade-agent.sock`) does not have a user/group accessed due to privileged access on critical resources.
-
-**Kubernetes deployment**:
-A kustomize environment can be found in `hack/deploy`. A `kubectl -k hack/deploy` does the trick - or use a GitOps tool such as FluxCD.
-
+<!-- WIP
+**Kubernetes Deployment**:
+A Kustomize environment can be found in `hack/deploy`. Use `kubectl -k hack/deploy` or employ a GitOps tool like FluxCD.
+-->
 
 ## Configuration
-The configuration is driven by a config file or environment variables. Linux packages ship with the default configuration placed in `/etc/computeblade-agent/config.yaml`.
-Alternatively (specifically for running within Kubernetes), all parameters in the YAML configuration can be overwritten using environment variables, prefixed with `BLADE_`:
+Configuration can be driven by a config file or environment variables. Linux packages ship with the default configuration in `/etc/computeblade-agent/config.yaml`. Alternatively, especially for Kubernetes, all parameters in the YAML configuration can be overwritten using environment variables prefixed with `BLADE_`.
 
-Changing the metric address defined in YAML like this:
+For example, changing the metric address defined in YAML:
 ```yaml
 # Listen configuration
 listen:
   metrics: ":9666"
 ```
-is driven by the environment variable `BLADE_LISTEN_METRICS=":1234"`.
+can be achieved with the environment variable `BLADE_LISTEN_METRICS=":1234"`.
 
 Some useful parameters:
-- `BLADE_STEALTH_MODE=false` Enables/disables stealth mode
-- `BLADE_FAN_SPEED_PERCENT=80` Sets static fan-speed (by default, there's a linear fan-curve of 40-80%
-- `BLADE_CRITICAL_TEMPERATURE_THRESHOLD=60` Configures critical temperature threshold of the agent
-- `BLADE_HAL_BCM2711_DISABLE_FANSPEED_MEASUREMENT=false` enables/disables fan speed measnurement (disabling it reduces CPU load of the agent)
-
+- `BLADE_STEALTH_MODE=false`: Enables/disables stealth mode.
+- `BLADE_FAN_SPEED_PERCENT=80`: Sets static fan speed (by default, there's a linear fan curve of 40-80%).
+- `BLADE_CRITICAL_TEMPERATURE_THRESHOLD=60`: Configures the critical temperature threshold of the agent.
+- `BLADE_HAL_RPM_REPORTING_STANDARD_FAN_UNIT=false`: Enables/disables fan speed measurement (disabling it reduces CPU load of the agent).
