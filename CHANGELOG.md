@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.5.0](https://github.com/Uptime-Lab/computeblade-agent/compare/v0.4.1...v0.5.0) (2023-11-25)
+
+
+### Features
+
+* add smart fan unit support ([#29](https://github.com/Uptime-Lab/computeblade-agent/issues/29)) ([9992037](https://github.com/Uptime-Lab/computeblade-agent/commit/99920370fba8176dc34243d28281aa343f437fc5))
+
+
+### Bug Fixes
+
+* smart fan unit improvements ([#31](https://github.com/Uptime-Lab/computeblade-agent/issues/31)) ([a8d470d](https://github.com/Uptime-Lab/computeblade-agent/commit/a8d470d4f9ec2749e1067474805f67639cd24c09))
+
 ## [0.4.1](https://github.com/Uptime-Lab/computeblade-agent/compare/v0.4.0...v0.4.1) (2023-10-05)
 
 
