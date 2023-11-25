@@ -337,6 +337,7 @@ func (bcm *bcm2711) setPwm0Freq(targetFrequency uint64) error {
 
 // SetFanSpeed sets the fanspeed of a blade in percent (standard fan unit)
 func (bcm *bcm2711) SetFanSpeed(speed uint8) error {
+	fanTargetPercent.Set(float64(speed))
 	return bcm.fanUnit.SetFanSpeedPercent(context.TODO(), speed)
 }
 

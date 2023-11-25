@@ -43,7 +43,6 @@ func (m *SimulatedHal) Close() error {
 
 func (m *SimulatedHal) SetFanSpeed(percent uint8) error {
 	m.logger.Info("SetFanSpeed", zap.Uint8("percent", percent))
-	fanSpeedTargetPercent.Set(float64(percent))
 	fanSpeed.Set(2500 * (float64(percent) / 100))
 	return nil
 }

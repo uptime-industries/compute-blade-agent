@@ -41,8 +41,8 @@ fan_controller:
   # For now, this is only supporting a two-step configuration.
   steps:
     - temperature: 45
-      speed: 40
+      percent: 40
     - temperature: 55
-      speed: 80
+      percent: 80
 # Critical temperature threshold
 critical_temperature_threshold: 60
