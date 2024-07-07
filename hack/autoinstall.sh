@@ -22,7 +22,7 @@ detect_package_suffix() {
 # Function to get the latest release tag from GitHub
 get_latest_release() {
     local repo="$1"
-    curl -s "https://api.github.com/repos/$repo/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/'
+    curl -Ls "https://api.github.com/repos/$repo/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/'
 }
 
 github_repo="uptime-lab/computeblade-agent"
