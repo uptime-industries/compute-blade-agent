@@ -4,7 +4,7 @@ package fancontroller_test
 import (
 	"testing"
 
-	"github.com/xvzf/computeblade-agent/pkg/fancontroller"
+	"github.com/uptime-induestries/compute-blade-agent/pkg/fancontroller"
 )
 
 func TestFanControllerLinear_GetFanSpeed(t *testing.T) {

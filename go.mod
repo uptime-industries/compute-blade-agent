@@ -1,16 +1,16 @@
-module github.com/xvzf/computeblade-agent
+module github.com/uptime-induestries/compute-blade-agent
 
-go 1.21
+go 1.22
 
-toolchain go1.21.3
+toolchain go1.22.5
 
 require (
-	github.com/jacobsa/go-serial v0.0.0-20180131005756-15cf729a72d4
 	github.com/prometheus/client_golang v1.16.0
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/viper v1.16.0
 	github.com/stretchr/testify v1.8.3
 	github.com/warthog618/gpiod v0.8.1
+	go.bug.st/serial v1.6.1
 	go.uber.org/zap v1.24.0
 	golang.org/x/sync v0.2.0
 	google.golang.org/grpc v1.56.2
@@ -42,7 +42,6 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/objx v0.5.0 // indirect
 	github.com/subosito/gotenv v1.4.2 // indirect
-	go.bug.st/serial v1.6.1 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/net v0.10.0 // indirect

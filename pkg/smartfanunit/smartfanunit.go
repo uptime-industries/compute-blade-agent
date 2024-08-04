@@ -1,7 +1,7 @@
 package smartfanunit
 
 import (
-	"github.com/xvzf/computeblade-agent/pkg/smartfanunit/proto"
+	"github.com/uptime-induestries/compute-blade-agent/pkg/smartfanunit/proto"
 )
 
 const (

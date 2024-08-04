@@ -7,11 +7,11 @@ import (
 	"machine"
 	"time"
 
-	"github.com/xvzf/computeblade-agent/pkg/eventbus"
-	"github.com/xvzf/computeblade-agent/pkg/hal/led"
-	"github.com/xvzf/computeblade-agent/pkg/smartfanunit"
-	"github.com/xvzf/computeblade-agent/pkg/smartfanunit/emc2101"
-	"github.com/xvzf/computeblade-agent/pkg/smartfanunit/proto"
+	"github.com/uptime-induestries/compute-blade-agent/pkg/eventbus"
+	"github.com/uptime-induestries/compute-blade-agent/pkg/hal/led"
+	"github.com/uptime-induestries/compute-blade-agent/pkg/smartfanunit"
+	"github.com/uptime-induestries/compute-blade-agent/pkg/smartfanunit/emc2101"
+	"github.com/uptime-induestries/compute-blade-agent/pkg/smartfanunit/proto"
 	"golang.org/x/sync/errgroup"
 	"tinygo.org/x/drivers"
 	"tinygo.org/x/drivers/ws2812"
@@ -66,7 +66,7 @@ func (c *Controller) Run(parentCtx context.Context) error {
 	// Metric reporting events
 	println("[+] Starting metric reporting loop")
 	group.Go(func() error {
-		return c.metricReporter(ctx);
+		return c.metricReporter(ctx)
 	})
 
 	// Left blade events
@@ -186,7 +186,7 @@ func (c *Controller) metricReporter(ctx context.Context) error {
 		// FIXME: This is a workaround for an i2c lockup issue.
 		if err != nil {
 			println("[!] resetting CPU")
-			time.Sleep(100*time.Millisecond)
+			time.Sleep(100 * time.Millisecond)
 			machine.CPUReset()
 		}
 

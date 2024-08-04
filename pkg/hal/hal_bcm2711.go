@@ -14,10 +14,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/uptime-induestries/compute-blade-agent/pkg/hal/led"
+	"github.com/uptime-induestries/compute-blade-agent/pkg/log"
 	"github.com/warthog618/gpiod"
 	"github.com/warthog618/gpiod/device/rpi"
-	"github.com/xvzf/computeblade-agent/pkg/hal/led"
-	"github.com/xvzf/computeblade-agent/pkg/log"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )

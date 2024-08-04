@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/xvzf/computeblade-agent/pkg/eventbus"
+	"github.com/uptime-induestries/compute-blade-agent/pkg/eventbus"
 )
 
 func TestEventBusManySubscribers(t *testing.T) {
@@ -35,12 +35,10 @@ func TestEventBusManySubscribers(t *testing.T) {
 	assert.Equal(t, len(sub3.C()), 0)
 	defer sub3.Unsubscribe()
 
-
 	// Publish some messages
 	eb.Publish("topic0", 10)
 	eb.Publish("topic0", 4)
 	eb.Publish("topic1", "Hello, World!")
-
 
 	// Assert received messages
 	assert.Equal(t, len(sub0.C()), 2)

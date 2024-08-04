@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	bladeapiv1alpha1 "github.com/xvzf/computeblade-agent/api/bladeapi/v1alpha1"
+	bladeapiv1alpha1 "github.com/uptime-induestries/compute-blade-agent/api/bladeapi/v1alpha1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -73,7 +73,7 @@ var rootCmd = &cobra.Command{
 		}
 		client := bladeapiv1alpha1.NewBladeAgentServiceClient(conn)
 
-		cmd.SetContext( clientIntoContext(ctx, client))
+		cmd.SetContext(clientIntoContext(ctx, client))
 		return nil
 	},
 }

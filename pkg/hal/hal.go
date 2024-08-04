@@ -3,7 +3,7 @@ package hal
 import (
 	"context"
 
-	"github.com/xvzf/computeblade-agent/pkg/hal/led"
+	"github.com/uptime-induestries/compute-blade-agent/pkg/hal/led"
 )
 
 type FanUnitKind uint8
@@ -62,7 +62,6 @@ type ComputeBladeHal interface {
 	// GetEdgeButtonPressChan returns a channel emitting edge button press events
 	WaitForEdgeButtonPress(ctx context.Context) error
 }
-
 
 // FanUnit abstracts the fan unit
 type FanUnit interface {

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/xvzf/computeblade-agent/internal/agent"
+	"github.com/uptime-induestries/compute-blade-agent/internal/agent"
 )
 
 func TestNewComputeBladeState(t *testing.T) {
