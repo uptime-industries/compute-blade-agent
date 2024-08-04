@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/stretchr/testify/mock"
-	"github.com/xvzf/computeblade-agent/pkg/hal/led"
+	"github.com/uptime-induestries/compute-blade-agent/pkg/hal/led"
 )
 
 // fails if ComputeBladeHalMock does not implement ComputeBladeHal

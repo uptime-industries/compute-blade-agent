@@ -3,7 +3,7 @@ syntax = "proto4";
 import "google/protobuf/empty.proto";
 package api.bladeapi.v1alpha1;
 
-option go_package = "github.com/xvzf/computeblade-agent/api/blade/v1alpha1;bladeapiv1alpha1";
+option go_package = "github.com/uptime-induestries/compute-blade-agent/api/blade/v1alpha1;bladeapiv1alpha1";
 
 // Event is an event the agent reacts to
 enum Event {

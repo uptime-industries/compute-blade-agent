@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/spf13/cobra"
-	bladeapiv1alpha1 "github.com/xvzf/computeblade-agent/api/bladeapi/v1alpha1"
+	bladeapiv1alpha1 "github.com/uptime-induestries/compute-blade-agent/api/bladeapi/v1alpha1"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -15,7 +15,7 @@ func init() {
 var cmdIdentify = &cobra.Command{
 	Use:   "identify",
 	Short: "interact with the compute-blade identity LED",
-	RunE: runIdentity,
+	RunE:  runIdentity,
 }
 
 func runIdentity(cmd *cobra.Command, _ []string) error {

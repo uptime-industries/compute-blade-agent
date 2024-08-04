@@ -7,8 +7,8 @@ import (
 	"machine"
 	"time"
 
-	"github.com/xvzf/computeblade-agent/pkg/smartfanunit"
-	"github.com/xvzf/computeblade-agent/pkg/smartfanunit/emc2101"
+	"github.com/uptime-induestries/compute-blade-agent/pkg/smartfanunit"
+	"github.com/uptime-induestries/compute-blade-agent/pkg/smartfanunit/emc2101"
 	"tinygo.org/x/drivers/ws2812"
 )
 
@@ -23,7 +23,7 @@ func main() {
 	machine.LED.Set(false)
 
 	// Configure UARTs
-	err  = machine.UART0.Configure(machine.UARTConfig{TX: machine.UART0_TX_PIN, RX: machine.UART0_RX_PIN})
+	err = machine.UART0.Configure(machine.UARTConfig{TX: machine.UART0_TX_PIN, RX: machine.UART0_RX_PIN})
 	if err != nil {
 		println("[!] Failed to initialize UART0:", err.Error())
 		goto errprint
@@ -75,7 +75,7 @@ func main() {
 	err = controller.Run(context.Background())
 
 	// Blinking -> something went wrong
-	errprint:
+errprint:
 	ledState := false
 	for {
 		ledState = !ledState

@@ -6,9 +6,9 @@ import (
 	"context"
 	"math"
 
+	"github.com/uptime-induestries/compute-blade-agent/pkg/hal/led"
 	"github.com/warthog618/gpiod"
 	"github.com/warthog618/gpiod/device/rpi"
-	"github.com/xvzf/computeblade-agent/pkg/hal/led"
 )
 
 type standardFanUnitBcm2711 struct {

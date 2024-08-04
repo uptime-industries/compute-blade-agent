@@ -6,7 +6,7 @@ The `computeblade-agent` serves as an operating system agent interfacing with [C
 
 **Quick Setup with TL;DR**:
 ```bash
-curl -L -o /tmp/computeblade-agent-installer.sh https://raw.githubusercontent.com/Uptime-Lab/computeblade-agent/main/hack/autoinstall.sh
+curl -L -o /tmp/computeblade-agent-installer.sh https://raw.githubusercontent.com/github.com/uptime-induestries/compute-blade-agent/main/hack/autoinstall.sh
 chmod +x /tmp/computeblade-agent-installer.sh
 /tmp/computeblade-agent-installer.sh
 ```

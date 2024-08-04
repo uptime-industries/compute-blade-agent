@@ -8,11 +8,11 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/xvzf/computeblade-agent/pkg/fancontroller"
-	"github.com/xvzf/computeblade-agent/pkg/hal"
-	"github.com/xvzf/computeblade-agent/pkg/hal/led"
-	"github.com/xvzf/computeblade-agent/pkg/ledengine"
-	"github.com/xvzf/computeblade-agent/pkg/log"
+	"github.com/uptime-induestries/compute-blade-agent/pkg/fancontroller"
+	"github.com/uptime-induestries/compute-blade-agent/pkg/hal"
+	"github.com/uptime-induestries/compute-blade-agent/pkg/hal/led"
+	"github.com/uptime-induestries/compute-blade-agent/pkg/ledengine"
+	"github.com/uptime-induestries/compute-blade-agent/pkg/log"
 	"go.uber.org/zap"
 )
 

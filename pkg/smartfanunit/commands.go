@@ -3,8 +3,8 @@ package smartfanunit
 import (
 	"errors"
 
-	"github.com/xvzf/computeblade-agent/pkg/hal/led"
-	"github.com/xvzf/computeblade-agent/pkg/smartfanunit/proto"
+	"github.com/uptime-induestries/compute-blade-agent/pkg/hal/led"
+	"github.com/uptime-induestries/compute-blade-agent/pkg/smartfanunit/proto"
 )
 
 const (

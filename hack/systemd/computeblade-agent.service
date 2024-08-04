@@ -1,6 +1,6 @@
 [Unit]
 Description=ComputeBlade Agent
-Documentation=https://github.com/xvzf/computeblade-agent
+Documentation=https://github.com/uptime-induestries/compute-blade-agent
 After=network.target
 
 [Service]
