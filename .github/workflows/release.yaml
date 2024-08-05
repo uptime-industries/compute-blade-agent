@@ -55,7 +55,7 @@ jobs:
       # Setup tinygo
       - uses: acifani/setup-tinygo@v2
         with:
-          tinygo-version: '0.30.0'
+          tinygo-version: '0.32.0'
 
       # Setup docker buildx
       - name: Set up QEMU
