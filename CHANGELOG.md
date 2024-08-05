@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.2](https://github.com/uptime-industries/compute-blade-agent/compare/v0.6.1...v0.6.2) (2024-08-05)
+
+
+### Bug Fixes
+
+* cleanup uf2 files ([d088a1b](https://github.com/uptime-industries/compute-blade-agent/commit/d088a1ba0a1adba7694a7d2d3b7d49bb9c72fe0c))
+
 ## [0.6.1](https://github.com/uptime-industries/compute-blade-agent/compare/v0.6.0...v0.6.1) (2024-08-05)
 
 
