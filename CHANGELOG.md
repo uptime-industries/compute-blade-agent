@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.3](https://github.com/uptime-industries/compute-blade-agent/compare/v0.6.2...v0.6.3) (2024-08-05)
+
+
+### Bug Fixes
+
+* oci reg typo ([3cbf7a8](https://github.com/uptime-industries/compute-blade-agent/commit/3cbf7a8733dedde834f7392de0851c971a6e3a05))
+
 ## [0.6.2](https://github.com/uptime-industries/compute-blade-agent/compare/v0.6.1...v0.6.2) (2024-08-05)
 
 
