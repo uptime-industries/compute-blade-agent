@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/uptime-industries/compute-blade-agent/compare/v0.5.0...v0.6.0) (2024-08-05)
+
+
+### Features
+
+* migrate to uptime-industries gh org ([#37](https://github.com/uptime-industries/compute-blade-agent/issues/37)) ([6421521](https://github.com/uptime-industries/compute-blade-agent/commit/6421521bfc94a6211ed084bf8913f413e27e5b14))
+
 ## [0.5.0](https://github.com/github.com/uptime-induestries/compute-blade-agent/compare/v0.4.1...v0.5.0) (2023-11-25)
 
 
