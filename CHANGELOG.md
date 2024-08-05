@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/uptime-industries/compute-blade-agent/compare/v0.6.0...v0.6.1) (2024-08-05)
+
+
+### Bug Fixes
+
+* bump tinygo release ([#39](https://github.com/uptime-industries/compute-blade-agent/issues/39)) ([3278678](https://github.com/uptime-industries/compute-blade-agent/commit/32786787683e2a0cd42b63b92fe7dd2c41bb6e8f))
+
 ## [0.6.0](https://github.com/uptime-industries/compute-blade-agent/compare/v0.5.0...v0.6.0) (2024-08-05)
 
 
