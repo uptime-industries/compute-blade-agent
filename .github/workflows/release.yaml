@@ -36,7 +36,7 @@ jobs:
       - name: Setup Golang
         uses: actions/setup-go@v4
         with:
-          go-version: stable
+          go-version: 1.22
       - id: go-cache-paths
         run: |
           echo "go-build=$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
@@ -55,7 +55,7 @@ jobs:
       # Setup tinygo
       - uses: acifani/setup-tinygo@v2
         with:
-          tinygo-version: '0.32.0'
+          tinygo-version: '0.33.0'
 
       # Setup docker buildx
       - name: Set up QEMU
