@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.4](https://github.com/uptime-industries/compute-blade-agent/compare/v0.6.3...v0.6.4) (2024-08-31)
+
+
+### Bug Fixes
+
+* finalize renaming ([158e7fc](https://github.com/uptime-industries/compute-blade-agent/commit/158e7fc1bde46e66327d70f87743df39070c2753))
+
 ## [0.6.3](https://github.com/uptime-industries/compute-blade-agent/compare/v0.6.2...v0.6.3) (2024-08-05)
 
 
