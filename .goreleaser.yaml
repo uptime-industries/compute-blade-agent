@@ -1,4 +1,4 @@
-project_name: computeblade-agent
+project_name: compute-blade-agent
 
 builds:
   - env: &env
@@ -7,7 +7,7 @@ builds:
     - linux
     goarch: &goarch
     - arm64
-    binary: computeblade-agent
+    binary: compute-blade-agent
     id: agent
     dir: ./cmd/agent/
 
@@ -66,9 +66,9 @@ signs:
 
 # Regular OS packages (for now only systemd based OSes)
 nfpms:
-- id: computeblade-agent
+- id: compute-blade-agent
   maintainer: Matthias Riegler <me@xvzf.tech>
-  description: Computeblade Agent
+  description: compute-blade Agent
   homepage: https://github.com/github.com/uptime-industries/compute-blade-agent
   license: Apache 2.0
   formats:
@@ -77,13 +77,13 @@ nfpms:
   - archlinux
   bindir: /usr/bin
   contents:
-  - src: ./hack/systemd/computeblade-agent.service
-    dst: /etc/systemd/system/computeblade-agent.service
+  - src: ./hack/systemd/compute-blade-agent.service
+    dst: /etc/systemd/system/compute-blade-agent.service
   - src: ./cmd/agent/default-config.yaml
-    dst: /etc/computeblade-agent/config.yaml
+    dst: /etc/compute-blade-agent/config.yaml
     type: config
   - src: ./fanunit.uf2
-    dst: /usr/share/computeblade-agent/fanunit.uf2
+    dst: /usr/share/compute-blade-agent/fanunit.uf2
 
 release:
   extra_files:

@@ -25,13 +25,13 @@ get_latest_release() {
     curl -s "https://api.github.com/repos/$repo/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/'
 }
 
-github_repo="github.com/uptime-induestries/compute-blade-agent"
+github_repo="github.com/uptime-industries/compute-blade-agent"
 package_suffix=$(detect_package_suffix)
 latest_release=$(get_latest_release "$github_repo")
 
 # Construct the download URL and filename based on the detected package manager and latest release
 download_url="https://github.com/$github_repo/releases/download/$latest_release/${github_repo##*/}_${latest_release#v}_linux_arm64.$package_suffix"
-target_file="$tmp_dir/computeblade-agent.$package_suffix"
+target_file="$tmp_dir/compute-blade-agent.$package_suffix"
 
 # Download the package
 echo "Downloading $download_url"
@@ -52,5 +52,5 @@ case "$package_suffix" in
 esac
 
 # Enable and start the service
-echo "Enabling and starting computeblade-agent"
-sudo systemctl enable computeblade-agent --now
+echo "Enabling and starting compute-blade-agent"
+sudo systemctl enable compute-blade-agent --now
