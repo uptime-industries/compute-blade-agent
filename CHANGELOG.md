@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.5](https://github.com/uptime-industries/compute-blade-agent/compare/v0.6.4...v0.6.5) (2024-08-31)
+
+
+### Bug Fixes
+
+* pin golang/tinygo versions ([ca690d4](https://github.com/uptime-industries/compute-blade-agent/commit/ca690d418f099881b6aafdb2ca4be3cee6ac73fc))
+
 ## [0.6.4](https://github.com/uptime-industries/compute-blade-agent/compare/v0.6.3...v0.6.4) (2024-08-31)
 
 
